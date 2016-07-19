@@ -26,7 +26,7 @@ int make_sock()
 	struct addrinfo hints, *server_addr;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;		// ipv4 or ipv6
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;	
 	hints.ai_flags = AI_PASSIVE;
 

@@ -1,4 +1,5 @@
-CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra -Isrc $(OPTFLAGS)
+INCLUDE= -Isrc -Ithird_party/uthash/src/
+CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS)
 LDLIBS=-lev $(OPTLIBS)
 PREFIX?=/usr/local
 
@@ -32,7 +33,7 @@ build:
 
 # The Unit Tests
 .PHONY: tests
-tests: LDLIBS += $(TARGET)
+tests: LDLIBS += $(SO_TARGET)
 tests: $(TESTS)
 
 valgrind:
@@ -55,3 +56,4 @@ BADFUNCS='[^_.>a-zA-Z0-9](str(n?cpy|n?cat|xfrm|n?dup|str|pbrk|tok|_)|stpn?cpy|a?
 check:
 	@echo Files with potentially dangerous functions.
 	@egrep $(BADFUNCS) $(SOURCES) || true
+

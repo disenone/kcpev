@@ -30,4 +30,10 @@
 #define check_debug(A, M, ...) do {if(!(A)) { debug(M, ##__VA_ARGS__); errno=0; goto error; }} while (0)
 
 #define check_silently(A) do {if(!(A)) { goto error; }} while (0)
+
+#define check_goto(A, M, G, ...) do {if(!(A)) { log_err(M, ##__VA_ARGS__); errno=0; goto G; }} while (0)
+
+#define check_log(A, M, ...) do {if(!(A)) { log_err(M, ##__VA_ARGS__); errno=0; }} while (0)
+
 #endif
+

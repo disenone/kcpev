@@ -88,7 +88,7 @@ ikcpcb* create_kcp(int sock)
 {
 	ikcpcb *kcp = ikcp_create(0x11223344, (void*)sock);
 	ikcp_wndsize(kcp, 128, 128);
-	ikcp_nodelay(kcp, 0, 10, 0, 0);
+	ikcp_nodelay(kcp, 1, 10, 2, 1);
 	kcp->output = udp_output;
 	return kcp;
 }
@@ -126,7 +126,17 @@ void on_timer(struct ev_loop *loop, ev_timer *w, int revents)
 
 	ikcpcb *kcp = w->data;
 
-	ikcp_update(kcp, now);
+	// use ikcp_check to decide if really need ikcp_update
+	uint32_t next = ikcp_check(kcp, now);
+
+	if (next <= now)
+	{
+		ikcp_update(kcp, now);
+		next = ikcp_check(kcp, now);
+	}
+
+	w->repeat = (next - now) / 1000.0;
+	ev_timer_again(EV_A_ w);
 
 	try_recv(kcp);
 }
@@ -185,7 +195,7 @@ void accept_client(EV_P_ struct ev_io *w, int revents)
 	w->data = new_kcp;
 	ev_timer *new_timer = (ev_timer*)malloc(sizeof(ev_timer));
 	new_timer->data = new_kcp;
-	ev_timer_init(new_timer, on_timer, 0.001, 0.001);
+	ev_timer_init(new_timer, on_timer, 0.01, 0.01);
 	ev_timer_start(EV_A_ new_timer);
 
 error:
@@ -205,7 +215,7 @@ int main()
 
 	ev_timer ev_timer;
 	ev_timer.data = kcp;
-	ev_timer_init(&ev_timer, on_timer, 0.001, 0.001);
+	ev_timer_init(&ev_timer, on_timer, 0.01, 0.01);
 	ev_timer_start(loop, &ev_timer);
 
 	printf("waiting for client...\n");

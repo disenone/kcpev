@@ -1,6 +1,6 @@
 INCLUDE= -Isrc -Ithird_party/uthash/src/
 CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS)
-LDLIBS=-lev $(OPTLIBS)
+LDLIBS=-luuid -lev $(OPTLIBS)
 PREFIX?=/usr/local
 
 SOURCES=$(wildcard src/**/*.c src/*.c)
@@ -10,7 +10,7 @@ TEST_SRC=$(wildcard tests/*_test*.c)
 TESTS=$(patsubst %.c,%,$(TEST_SRC))
 
 TARGET_NAME=kcpev
-TARGET=build/lib$(TARGET_NAME).a
+TARGET=$(CURDIR)/build/lib$(TARGET_NAME).a
 SO_TARGET=$(patsubst %.a,%.so,$(TARGET))
 
 # The Target Build
@@ -34,6 +34,7 @@ build:
 # The Unit Tests
 .PHONY: tests
 tests: LDLIBS += $(SO_TARGET)
+# tests: CFLAGS += -pg
 tests: $(TESTS)
 
 valgrind:

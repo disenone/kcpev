@@ -1,5 +1,6 @@
 #include <kcpev.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "dbg.h"
@@ -10,21 +11,49 @@
 // 基于kcpev的客户端
 //
 
+void stdin_read(EV_P_ struct ev_io *w, int revents)
+{
+	char buf[RECV_LEN];
+	char *buf_in;
+	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
+	check(buf_in != NULL, "get stdin");
+
+    /*Kcpev *kcpev = w->data;	*/
+    /*send(kcpev->udp.sock, buf, strlen(buf), 0);*/
+    /*ikcpcb *kcp = ((Kcpev *)w->data)->udp.kcp;*/
+    /*ikcp_send(kcp, buf, strlen(buf));*/
+
+    kcpev_send(w->data, buf, strlen(buf));
+
+	printf(">> ");
+	fflush(stdout);
+error:
+	return;
+}
+
+
 int main()
 {
-    Kcpev *kcpev;
+    Kcpev *kcpev = NULL;
 	struct ev_loop *loop = EV_DEFAULT;
 
-    int ret = kcpev_init_client(&kcpev, EV_DEFAULT, PORT);
-    check(ret >= 0, "init client");
+    kcpev = kcpev_create_client(loop, PORT, AF_INET);
+    check(kcpev, "init client");
 
-    ret = kcpev_connect(kcpev, "127.0.0.1", "33333");
+    int ret = kcpev_connect(kcpev, "127.0.0.1", "33333");
     check(ret >= 0, "connect");
 
-    char *msg = "hi there";
-    send(kcpev->udp.sock, msg, strlen(msg), 0);
+	ev_io ev_stdin;
+	ev_stdin.data = kcpev;
+	ev_io_init(&ev_stdin, stdin_read, STDIN_FILENO, EV_READ);
+	ev_io_start(loop, &ev_stdin);
+
+	printf(">> ");
+	fflush(stdout);
 
     return ev_run(loop, 0);
 error:
     return -1;
 }
+
+

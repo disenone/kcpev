@@ -12,11 +12,11 @@
 
 int main()
 {
-    KcpevServer *kcpev;
+    KcpevServer *kcpev = NULL;
 	struct ev_loop *loop = EV_DEFAULT;
 
-    int ret = kcpev_init_server(&kcpev, loop, PORT, AF_INET6, BACKLOG);
-    check(ret >= 0, "init server");
+    kcpev = kcpev_create_server(loop, PORT, AF_INET, BACKLOG);
+    check(kcpev, "init server");
 
     printf("wait for clients...\n");
 

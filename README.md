@@ -4,6 +4,10 @@
 设计：
 TCP 和 UDP 同时使用，结构参考[同现有 TCP服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)
 
+Dependency:
+* [libev](http://software.schmorp.de/pkg/libev.html)
+* libuuid: apt-get install uuid-dev 
+* [uthash](https://github.com/troydhanson/uthash)
 
 TODO:
 * 压测

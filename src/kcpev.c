@@ -212,14 +212,14 @@ int kcpev_bind(Kcpev *kcpev, const char *port, int family, int reuse)
     ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
         sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
     check(ret >= 0, "getnameinfo");
-    debug("tcp port[%s : %s]", hbuf, sbuf);
+    debug("local tcp port[%s : %s]", hbuf, sbuf);
 
     // 如果udp创建失败，会退化到用tcp来通信
     ret = kcpev_bind_udp(&kcpev->udp, port, family, reuse);
     getsockname(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
     getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
         sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
-    debug("udp port[%s : %s]", hbuf, sbuf);
+    debug("local udp port[%s : %s]", hbuf, sbuf);
     if(ret < 0)
     {
         debug("failed to create udp socket\n");
@@ -465,12 +465,17 @@ error:
     return result;
 }
 
-void kcpev_on_timer(struct ev_loop *loop, ev_timer *w, int revents)
+void kcpev_timer_repeat(Kcpev *kcpev)
 {
+    if(!kcpev)
+        return;
+
+    struct ev_loop *loop = kcpev->loop;
+    ev_timer *evt = kcpev->udp.evt;
+	ikcpcb *kcp = kcpev->udp.kcp;
+
 	uint64_t now64 = ev_now(EV_A) * 1000;
 	uint32_t now = now64 & 0xfffffffful;
-
-	ikcpcb *kcp = ((Kcpev *)w->data)->udp.kcp;
 
 	// use ikcp_check to decide if really need ikcp_update
 	uint32_t next = ikcp_check(kcp, now);
@@ -482,12 +487,17 @@ void kcpev_on_timer(struct ev_loop *loop, ev_timer *w, int revents)
 	}
 
 	if (next <= now)
-		w->repeat = 0.01;
+		evt->repeat = 0.01;
 	else
-		w->repeat = (next - now) / 1000.0;
+		evt->repeat = (next - now) / 1000.0;
 	/*debug("%u, %u, %lf", now, next, w->repeat);*/
-	ev_timer_again(EV_A_ w);
+	ev_timer_again(EV_A_ evt);
 
+}
+
+void kcpev_on_timer(EV_P_ ev_timer *w, int revents)
+{
+    kcpev_timer_repeat((Kcpev *)w->data);
 	try_kcp_recv(w->data);
 }
 
@@ -536,9 +546,8 @@ void client_udp_recv(EV_P_ struct ev_io *w, int revents)
     }
 
     ikcp_input(client->udp.kcp, buf, len);
-    /*ev_timer *evt = client->udp.evt;*/
-	/*evt->repeat = 0.01;*/
-	/*ev_timer_again(EV_A_ evt);*/
+ 
+    kcpev_timer_repeat(client);
 
     int ret = try_kcp_recv(client);
 error:
@@ -587,10 +596,8 @@ void server_udp_recv(EV_P_ struct ev_io *w, int revents)
     uuid_unparse(client->key.uuid, uuids);
 
     ikcp_input(client->udp.kcp, buf, len);
-
-    /*ev_timer *evt = client->udp.evt;*/
-	/*evt->repeat = 0.01;*/
-	/*ev_timer_again(EV_A_ evt);*/
+ 
+    kcpev_timer_repeat(client);
 
     int ret = try_kcp_recv(client);
 error:
@@ -653,7 +660,7 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
 
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
-	debug("accept client [%s * %s * %s]\n", hbuf, sbuf, uuids);
+	debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
 
     // send client key
     char buf[RECV_LEN];
@@ -729,7 +736,7 @@ void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
 
     buf[len] = '\0';
 
-    debug("udp_all recv client [%s:%s]: [%d]%s\n", hbuf, sbuf, len, buf);
+    debug("udp_all recv client [%s : %s]: [%d]\n", hbuf, sbuf, len);
 
 error:
 
@@ -851,7 +858,8 @@ int kcpev_send(Kcpev *kcpev, char *msg, int len)
     // 如果kcp能用，就用kcp来发消息，否则用tcp
     if(is_kcp_valid(kcpev))
     {
-        return ikcp_send(kcpev->udp.kcp, msg, len);
+        int ret = ikcp_send(kcpev->udp.kcp, msg, len);
+        kcpev_timer_repeat(kcpev);
     }
     else
         return send(kcpev->tcp.sock, msg, len, 0);

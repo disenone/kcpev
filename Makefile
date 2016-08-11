@@ -1,6 +1,7 @@
 INCLUDE= -Isrc -Ithird_party/uthash/src/
 CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS)
-LDLIBS=-luuid -lev $(OPTLIBS)
+LIBS=-luuid -lev $(OPTLIBS)
+LDLIBS=$(LIBS)
 PREFIX?=/usr/local
 
 SOURCES=$(wildcard src/**/*.c src/*.c)
@@ -33,7 +34,7 @@ build:
 
 # The Unit Tests
 .PHONY: tests
-tests: LDLIBS += $(SO_TARGET)
+tests: LDLIBS = $(SO_TARGET) $(LIBS)
 # tests: CFLAGS += -pg
 tests: $(TESTS)
 

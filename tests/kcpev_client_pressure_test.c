@@ -31,7 +31,7 @@ void on_timer(EV_P_ struct ev_io *w, int revents)
     int len = create_rand_str(buf, sizeof(buf));
     kcpev_send(w->data, buf, len);
 
-    //debug("%lf - %s", ev_now(loop), msg);
+    debug("send [%d]", len);
 }
 
 void on_stop(EV_P_ struct ev_io *w, int revents)

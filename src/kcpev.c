@@ -323,7 +323,7 @@ int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
     kcpev_udp *client = user;
 	int ret = send(client->sock, buf, len, 0);
-	check(ret > 0, "send");
+	check(ret == len, "send");
 
 error:
 	return 0;
@@ -481,7 +481,11 @@ void kcpev_on_timer(struct ev_loop *loop, ev_timer *w, int revents)
 		next = ikcp_check(kcp, now);
 	}
 
-	w->repeat = (next - now) / 1000.0;
+	if (next <= now)
+		w->repeat = 0.01;
+	else
+		w->repeat = (next - now) / 1000.0;
+	/*debug("%u, %u, %lf", now, next, w->repeat);*/
 	ev_timer_again(EV_A_ w);
 
 	try_kcp_recv(w->data);
@@ -603,7 +607,7 @@ int connect_client_udp(Kcpev *client, char *port, struct sockaddr *addr, socklen
     ret = connect(client->udp.sock, addr, addr_size);
     check(ret >= 0, "connect client udp");
 
-    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, 0);
+    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, 2);
     check(ret >= 0, "client udp create kcp");
 
     ret = kcpev_init_ev(client, loop, data, server_tcp_recv, server_udp_recv);
@@ -780,7 +784,7 @@ Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family)
     int ret = kcpev_bind(kcpev, port, family, 0);
     check(ret >= 0, "kcpev_bind");
 
-    ret = kcpev_create_kcp(&kcpev->udp, kcpev->key.split_key.conv, 0);
+    ret = kcpev_create_kcp(&kcpev->udp, kcpev->key.split_key.conv, 2);
     check(ret >= 0, "create kcp");
 
     ret = kcpev_init_ev(kcpev, loop, kcpev, client_tcp_recv, client_udp_recv);

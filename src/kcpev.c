@@ -365,23 +365,6 @@ error:
     return -1;
 }
 
-void close_client(KcpevReflect *reflect)
-{
-    KcpevServer *server = reflect->server;
-
-    Kcpev *client = NULL;
-    HASH_FIND(hh, server->hash, reflect->key, sizeof(kcpev_key), client);
-
-    check(client, "HASH_FIND");
-
-    HASH_DEL(reflect->server->hash, client);
-    kcpev_destroy(client);
-
-error:
-    kcpev_free(reflect);
-}
-
-
 // uint8_t command:
 // 0: normal data
 // 1: set key
@@ -433,8 +416,6 @@ void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
 error:
     debug("tcp recv error");
     exit(1);
-    // close client
-    // close_client(w->data);
     return;
 }
 
@@ -459,6 +440,11 @@ int try_kcp_recv(Kcpev *kcpev)
 
         debug("kcp recv client [%s:%s]: [%d]\n", hbuf, sbuf, len);
         result = 0;
+
+        if(kcpev->server)
+            kcpev->server->recv_cb(kcpev->server, kcpev, buf, len);
+        else
+            kcpev->recv_cb(kcpev, buf, len);
     }
 
 error:
@@ -554,19 +540,25 @@ error:
     return;
 }
 
+void close_client(Kcpev *client)
+{
+    if(!client)
+        return;
+
+    KcpevServer *server = client->server;
+    HASH_DEL(server->hash, client);
+    kcpev_destroy(client);
+}
+
 void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
 {
     char buf[RECV_LEN];
-    KcpevReflect *reflect = w->data;
+    Kcpev *client = w->data;
 
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "client tcp closed");
     buf[len] = '\0';
-  
-    Kcpev *client = NULL;
-    HASH_FIND(hh, reflect->server->hash, reflect->key, sizeof(kcpev_key), client);
-    check(client, "");
-
+ 
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
 
@@ -574,23 +566,19 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     return;
 
 error:
-    close_client(reflect);
+    close_client(client);
     return;
 }
 
 void server_udp_recv(EV_P_ struct ev_io *w, int revents)
 {
     char buf[RECV_LEN];
-    KcpevReflect *reflect = w->data;
+    Kcpev *client = w->data;
 
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "");
   
     buf[len] = '\0';
-
-    Kcpev *client = NULL;
-    HASH_FIND(hh, reflect->server->hash, reflect->key, sizeof(kcpev_key), client);
-    check(client, "");
 
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
@@ -706,29 +694,22 @@ void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
 
             kcpev_key *key = (kcpev_key *)(buf + 1);
             Kcpev *client = NULL;
-            KcpevReflect *reflect = NULL;
             
             HASH_FIND(hh, server->hash, key, sizeof(kcpev_key), client);
             check(client, "udp shake client key not find [%s : %s]", hbuf, sbuf);
 
-            // reflect store in ev_io, used to reach KcpevServer and self client kcpev
-            reflect = kcpev_malloc(sizeof(KcpevReflect));
-            check_mem(reflect);
-            reflect->server = (KcpevServer *)w->data;
-            reflect->key = &client->key;
-
             // udp may failed, if so, use tcp then
             ret = connect_client_udp(client, server->port, (struct sockaddr *)&client_addr, \
-                addr_size, server->loop, reflect);
+                addr_size, server->loop, client);
             check_goto(ret >= 0, "connect_client_udp", shake_error);
+
+            client->server = (KcpevServer *)w->data;
+
             if(ret >= 0)
                 debug("recv client shake hand msg");
 
             break;
     shake_error:
-            if(reflect)
-                kcpev_free(reflect);
-
             break;
         default:
             sentinel("server_udp_recv_all command error");
@@ -853,15 +834,26 @@ int is_kcp_valid(Kcpev *kcpev)
     return 1;
 }
 
-int kcpev_send(Kcpev *kcpev, char *msg, int len)
+int kcpev_send(Kcpev *kcpev, const char *msg, int len)
 {
     // 如果kcp能用，就用kcp来发消息，否则用tcp
     if(is_kcp_valid(kcpev))
     {
         int ret = ikcp_send(kcpev->udp.kcp, msg, len);
         kcpev_timer_repeat(kcpev);
+        return ret;
     }
     else
         return send(kcpev->tcp.sock, msg, len, 0);
+}
+
+void kcpev_set_recv_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb)
+{
+   kcpev->recv_cb = recv_cb; 
+}
+
+void kcpev_server_set_recv_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb)
+{
+    kcpev->recv_cb = recv_cb;
 }
 

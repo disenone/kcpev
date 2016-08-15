@@ -10,6 +10,7 @@ Dependency:
 * [uthash](https://github.com/troydhanson/uthash)
 
 TODO:
+* 收发正确性测试：统计收包和发包的数量
 * 压测
 * udp 心跳包
 * 断线重连

@@ -31,6 +31,11 @@ error:
 	return;
 }
 
+void recv_cb(void *kcpev, const char *buf, int len)
+{
+    debug("recv_cb");
+}
+
 
 int main()
 {
@@ -42,6 +47,8 @@ int main()
 
     int ret = kcpev_connect(kcpev, "127.0.0.1", "33333");
     check(ret >= 0, "connect");
+
+    kcpev_set_recv_cb(kcpev, recv_cb);
 
 	ev_io ev_stdin;
 	ev_stdin.data = kcpev;

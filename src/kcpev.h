@@ -47,31 +47,37 @@ typedef struct
     ikcpcb *kcp;
 } kcpev_udp;
 
+struct _Kcpev;
+struct _KcpevServer;
+
+typedef void (*kcpev_server_recv_cb)(struct _KcpevServer *kcpev_server, struct _Kcpev *kcpev, const char *buf, int len);
+typedef void (*kcpev_recv_cb)(struct _Kcpev *kcpev, const char *buf, int len);
+
 #define KCPEV_BASE  \
     kcpev_tcp tcp;              \
     kcpev_udp udp;              \
     struct ev_loop *loop;       \
 
-typedef struct
+struct _Kcpev
 {
     KCPEV_BASE;
     kcpev_key key;
+    struct _KcpevServer *server;
+    kcpev_recv_cb recv_cb;
     UT_hash_handle hh;
-} Kcpev;
+};
 
-typedef struct
+typedef struct _Kcpev Kcpev;
+
+struct _KcpevServer
 {
     KCPEV_BASE;
+    kcpev_server_recv_cb recv_cb;
     char port[10];
     Kcpev *hash;
-} KcpevServer;
+};
 
-// 保存所属的 server 和 key，用来找回实际的客户端结构
-typedef struct
-{
-    KcpevServer *server;
-    kcpev_key *key;
-} KcpevReflect;
+typedef struct _KcpevServer KcpevServer;
 
 typedef void (*ev_io_callback)(EV_P_ ev_io *w, int revents);
 
@@ -88,7 +94,11 @@ int kcpev_connect(Kcpev *kcpev, const char *addr, const char *port);
 
 int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback tcp_cb, ev_io_callback udp_cb);
 
-int kcpev_send(Kcpev *kcpev, char *msg, int len);
+int kcpev_send(Kcpev *kcpev, const char *msg, int len);
+
+void kcpev_set_recv_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb);
+
+void kcpev_server_set_recv_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb);
 
 #ifdef __cplusplus
 }

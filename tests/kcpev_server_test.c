@@ -10,6 +10,12 @@
 // 基于kcpev的服务端
 //
 
+void recv_cb(KcpevServer *server, Kcpev* client, const char* buf, int len)
+{
+    debug("recv_cb");
+    kcpev_send(client, buf, len);
+}
+
 int main()
 {
     KcpevServer *kcpev = NULL;
@@ -18,7 +24,9 @@ int main()
     kcpev = kcpev_create_server(loop, PORT, AF_INET, BACKLOG);
     check(kcpev, "init server");
 
-    printf("wait for clients...\n");
+    kcpev_server_set_recv_cb(kcpev, recv_cb);
+
+    debug("wait for clients...");
 
     return ev_run(loop, 0);
 error:

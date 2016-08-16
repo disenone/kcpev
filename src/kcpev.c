@@ -438,7 +438,7 @@ int try_kcp_recv(Kcpev *kcpev)
         int ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
             sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
 
-        debug("kcp recv client [%s:%s]: [%d]\n", hbuf, sbuf, len);
+        /*debug("kcp recv client [%s:%s]: [%d]\n", hbuf, sbuf, len);*/
         result = 0;
 
         if(kcpev->server)
@@ -847,12 +847,12 @@ int kcpev_send(Kcpev *kcpev, const char *msg, int len)
         return send(kcpev->tcp.sock, msg, len, 0);
 }
 
-void kcpev_set_recv_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb)
+void kcpev_set_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb, kcpev_disconnect_cb disconnect_cb)
 {
    kcpev->recv_cb = recv_cb; 
 }
 
-void kcpev_server_set_recv_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb)
+void kcpev_server_set_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb, kcpev_server_disconnect_cb disconnect_cb)
 {
     kcpev->recv_cb = recv_cb;
 }

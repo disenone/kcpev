@@ -16,6 +16,10 @@
 #define COMMAND_SET_KEY     1
 #define COMMAND_SHAKE_HAND  1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
     int32_t r1;
@@ -50,8 +54,11 @@ typedef struct
 struct _Kcpev;
 struct _KcpevServer;
 
-typedef void (*kcpev_server_recv_cb)(struct _KcpevServer *kcpev_server, struct _Kcpev *kcpev, const char *buf, int len);
 typedef void (*kcpev_recv_cb)(struct _Kcpev *kcpev, const char *buf, int len);
+typedef void (*kcpev_server_recv_cb)(struct _KcpevServer *kcpev_server, struct _Kcpev *kcpev, const char *buf, int len);
+
+typedef void (*kcpev_disconnect_cb)(struct _Kcpev *kcpev);
+typedef void (*kcpev_server_disconnect_cb)(struct _KcpevServer *server, struct _Kcpev *kcpev);
 
 #define KCPEV_BASE  \
     kcpev_tcp tcp;              \
@@ -64,6 +71,7 @@ struct _Kcpev
     kcpev_key key;
     struct _KcpevServer *server;
     kcpev_recv_cb recv_cb;
+    void *data;
     UT_hash_handle hh;
 };
 
@@ -81,10 +89,6 @@ typedef struct _KcpevServer KcpevServer;
 
 typedef void (*ev_io_callback)(EV_P_ ev_io *w, int revents);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // interface
 
 Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family);
@@ -92,13 +96,11 @@ KcpevServer *kcpev_create_server(struct ev_loop *loop, const char *port, int fam
 
 int kcpev_connect(Kcpev *kcpev, const char *addr, const char *port);
 
-int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback tcp_cb, ev_io_callback udp_cb);
-
 int kcpev_send(Kcpev *kcpev, const char *msg, int len);
 
-void kcpev_set_recv_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb);
+void kcpev_set_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb, kcpev_disconnect_cb disconnect_cb);
 
-void kcpev_server_set_recv_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb);
+void kcpev_server_set_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb, kcpev_server_disconnect_cb disconnect_cb);
 
 #ifdef __cplusplus
 }

@@ -75,4 +75,15 @@ int setnonblocking(int fd)
 
 	return 0;
 }
+
+int create_rand_str(char* ptr, int min_len, int max_len)
+{
+    int len = rand() % (max_len - min_len) + min_len;
+    for(int i = 0; i < len; ++i)
+    {
+        ptr[i] = rand() % 126 + 1;
+    }
+    ptr[len] = '\0';
+    return len;
+}
 #endif

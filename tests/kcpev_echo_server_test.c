@@ -7,7 +7,7 @@
 #define BACKLOG 128
 #define PORT "33333"
 
-// 基于kcpev的服务端
+// 基于kcpev的 echo_server
 //
 
 void recv_cb(KcpevServer *server, Kcpev* client, const char* buf, int len)

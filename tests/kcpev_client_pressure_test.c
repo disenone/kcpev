@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include "dbg.h"
+#include "test.h"
 
 #define BACKLOG 128
 #define PORT "0"
@@ -14,21 +15,10 @@
 // 基于kcpev的客户端
 //
 
-int create_rand_str(char* ptr, int max_len)
-{
-    int len = rand() % (max_len - 2) + 1;
-    for(int i = 0; i < len; ++i)
-    {
-        ptr[i] = rand() % 126 + 1;
-    }
-    ptr[len] = '\0';
-    return len;
-}
-
 void on_timer(EV_P_ struct ev_io *w, int revents)
 {
     char buf[RECV_LEN];
-    int len = create_rand_str(buf, sizeof(buf));
+    int len = create_rand_str(buf, 1, sizeof(buf));
     kcpev_send(w->data, buf, len);
 
     debug("send [%d]", len);

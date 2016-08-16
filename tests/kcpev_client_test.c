@@ -48,7 +48,7 @@ int main()
     int ret = kcpev_connect(kcpev, "127.0.0.1", "33333");
     check(ret >= 0, "connect");
 
-    kcpev_set_recv_cb(kcpev, recv_cb);
+    kcpev_set_cb(kcpev, recv_cb, NULL);
 
 	ev_io ev_stdin;
 	ev_stdin.data = kcpev;

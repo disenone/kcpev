@@ -1,14 +1,17 @@
-INCLUDE= -Isrc -Ithird_party/uthash/src/
-CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS)
-LIBS=-luuid -lev $(OPTLIBS)
+INCLUDE= -Isrc -Ithird_party/uthash/src/ -Ithird_party/googletest/googletest/include/
+LDPATH = -L third_party/googletest/build/googlemock/gtest
+CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
+CXXFLAGS=-std=c++11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
+LIBS=-luuid -lev -lgtest $(OPTLIBS)
 LDLIBS=$(LIBS)
 PREFIX?=/usr/local
 
 SOURCES=$(wildcard src/**/*.c src/*.c)
 OBJECTS=$(patsubst %.c,%.o,$(SOURCES))
 
-TEST_SRC=$(wildcard tests/*_test*.c)
-TESTS=$(patsubst %.c,%,$(TEST_SRC))
+TEST_SRC=$(wildcard tests/*_test*.c tests/*_test*.cpp)
+TEST_C=$(patsubst %.c,%,$(TEST_SRC))
+TESTS=$(patsubst %.cpp,%,$(TEST_C))
 
 TARGET_NAME=kcpev
 TARGET=$(CURDIR)/build/lib$(TARGET_NAME).a

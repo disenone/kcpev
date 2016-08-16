@@ -562,7 +562,9 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
 
-    debug("tcp recv from client[%s]: %s", uuids, buf);
+    debug("tcp recv from client[%s]: [%d]", uuids, len);
+
+    client->server->recv_cb(client->server, client, buf, len);
     return;
 
 error:

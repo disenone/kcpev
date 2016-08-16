@@ -16,6 +16,7 @@ TODO:
 * 断线重连
 
 Build:
+* install libev uuid-dev
 * git submodule init && git submodule update 来下载第三方库
 * build googletest:
 	- cd third_party/googletest

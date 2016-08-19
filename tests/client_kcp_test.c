@@ -5,7 +5,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/epoll.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>

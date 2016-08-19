@@ -3,6 +3,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 /* get system time */
 static inline void itimeofday(long *sec, long *usec)

@@ -4,9 +4,8 @@
 # http://lint.travis-ci.org/
 
 before_install:
-  - brew update
-  - brew install ossp-uuid
-  - brew install libev
+  - brew update || true
+  - brew install libev || true
 
 install:
 # /usr/bin/gcc is 4.6 always, but gcc-X.Y is available.

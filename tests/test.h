@@ -8,7 +8,7 @@
 /* get system time */
 static inline void itimeofday(long *sec, long *usec)
 {
-	#if defined(__unix) || deinfed(__APPLE__)
+	#if defined(__unix) || defined(__APPLE__)
 	struct timeval time;
 	gettimeofday(&time, NULL);
 	if (sec) *sec = time.tv_sec;

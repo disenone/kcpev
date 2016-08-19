@@ -64,7 +64,8 @@ int main(int argc, char* argv[])
 	printf(">> ");
 	fflush(stdout);
 
-    return ev_run(loop, 0);
+    ev_run(loop, 0);
+	return 0;
 error:
     return -1;
 }

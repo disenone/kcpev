@@ -198,6 +198,7 @@ int main(int argc, char* argv[])
 
 	printf(">> ");
 	fflush(stdout);
-	return ev_run(EV_A_ 0);
+	ev_run(EV_A_ 0);
+	return 0
 }
 

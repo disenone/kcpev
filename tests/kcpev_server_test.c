@@ -27,7 +27,8 @@ int main()
 
     debug("wait for clients...");
 
-    return ev_run(loop, 0);
+    ev_run(loop, 0);
+	return 0;
 error:
     return -1;
 

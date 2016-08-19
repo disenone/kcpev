@@ -55,7 +55,8 @@ int main(int argc, char* argv[])
     ev_timer_init(&evs, on_stop, 100, 0);
     ev_timer_start(loop, &evs);
 
-    return ev_run(loop, 0);
+    ev_run(loop, 0);
+	return 0;
 error:
     return -1;
 }

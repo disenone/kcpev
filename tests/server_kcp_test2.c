@@ -219,7 +219,8 @@ int main()
 	ev_timer_start(loop, &ev_timer);
 
 	printf("waiting for client...\n");
-	return ev_run(EV_A_ 0);
+	ev_run(EV_A_ 0);
+	return 0;
 }
 
 

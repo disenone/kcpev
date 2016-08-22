@@ -1,9 +1,11 @@
 # kcpev
 ![build_status](https://travis-ci.org/disenone/kcpev.svg?branch=master)
+[![Build Status](https://travis-ci.org/disenone/kcpev.svg?branch=master)
+](https://travis-ci.org/disenone/kcpev)
 
 #######
 设计：
-TCP 和 UDP 同时使用，结构参考[同现有 TCP服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)
+TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)
 
 Dependency:
 * [libev](http://software.schmorp.de/pkg/libev.html)
@@ -11,8 +13,11 @@ Dependency:
 * [uthash](https://github.com/troydhanson/uthash)
 
 TODO:
-* 收发正确性测试：统计收包和发包的数量
+* 收发正确性测试
+	- tests/kcpev_package_test
+	- tests/echo_server + tests/kcpev_remote_package_test
 * 压测
+	- pressure_test.sh
 * udp 心跳包
 * 断线重连
 

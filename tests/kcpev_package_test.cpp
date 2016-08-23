@@ -41,7 +41,7 @@ void on_timer(EV_P_ struct ev_timer *w, int revents)
     if(package_info->size() > 1000)
         return;
 
-    char buf[RECV_LEN];
+    char buf[KCPEV_BUFFER_SIZE];
     int len = create_rand_str(buf, 4, sizeof(buf));
 
     *(int *)buf = package_info->size();

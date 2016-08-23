@@ -8,13 +8,13 @@
 #include "utils.h"
 
 #define INPORT_ANY "0"
-#define RECV_LEN 65536
+#define KCPEV_BUFFER_SIZE 65536
 #define NI_MAXHOST 1025
 #define NI_MAXSERV 32
 
-#define COMMAND_DATA        0
-#define COMMAND_SET_KEY     1
-#define COMMAND_SHAKE_HAND  1
+#define COMMAND_DATA        0   // 普通数据
+#define COMMAND_SHAKE_HAND  1   // 握手
+#define COMMAND_HEARTBEAT	2   // 心跳
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,10 +22,12 @@ extern "C" {
 
 typedef struct
 {
-    int32_t r1;
-    int32_t r2;
-    int32_t r3;
-    int32_t conv;
+    uint32_t r1;
+    uint32_t r2;
+    uint32_t r3;
+	uint16_t r4;
+	uint8_t r5;
+    uint8_t conv;
 } kcpev_skey;
 
 typedef union
@@ -72,6 +74,7 @@ struct _Kcpev
     struct _KcpevServer *server;
     kcpev_recv_cb recv_cb;
     void *data;
+    ev_tstamp heartbeat;
     UT_hash_handle hh;
 };
 
@@ -96,7 +99,10 @@ KcpevServer *kcpev_create_server(struct ev_loop *loop, const char *port, int fam
 
 int kcpev_connect(Kcpev *kcpev, const char *addr, const char *port);
 
+int sock_send_command(int sock, uint8_t command, const char *msg, int len);
+int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, int len);
 int kcpev_send(Kcpev *kcpev, const char *msg, int len);
+int kcpev_send_tcp(Kcpev *kcpev, const char *msg, int len);
 
 void kcpev_set_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb, kcpev_disconnect_cb disconnect_cb);
 

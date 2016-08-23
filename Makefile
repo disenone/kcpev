@@ -47,6 +47,7 @@ valgrind:
 # The Cleaner
 clean:
 	rm -rf build $(OBJECTS) $(TESTS)
+	rm -rf bin
 	rm -f tests/tests.log
 	find . -name "*.gc*" -exec rm {} \;
 	rm -rf `find . -name "*.dSYM" -print`

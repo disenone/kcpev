@@ -2,6 +2,8 @@
 
 ROOT=$(pwd)
 
+git submodule update --init --recursive
+
 # build googletest
 GTEST_FILE="third_party/googletest/build/googlemock/gtest/libgtest.a"
 if [ ! -f "$GTEST_FILE" ]

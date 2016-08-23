@@ -13,7 +13,7 @@
 
 void stdin_read(EV_P_ struct ev_io *w, int revents)
 {
-	char buf[RECV_LEN];
+	char buf[KCPEV_BUFFER_SIZE];
 	char *buf_in;
 	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
 	check(buf_in != NULL, "get stdin");

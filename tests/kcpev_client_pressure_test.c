@@ -17,7 +17,7 @@
 
 void on_timer(EV_P_ struct ev_io *w, int revents)
 {
-    char buf[RECV_LEN];
+    char buf[KCPEV_BUFFER_SIZE];
     int len = create_rand_str(buf, 1, sizeof(buf));
     kcpev_send(w->data, buf, len);
 

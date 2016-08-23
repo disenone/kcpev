@@ -365,35 +365,36 @@ error:
     return -1;
 }
 
-// uint8_t command:
-// 0: normal data
-// 1: set key
-void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
+// buf = uint32_t(len) + uint8_t(command) + data
+// #define COMMAND_DATA        0   # 普通数据
+// #define COMMAND_SHAKE_HAND  1   # 握手
+// #define COMMAND_HEARTBEAT   2   # 心跳
+int on_client_recv(Kcpev *client, const char *buf, int len)
 {
-    char buf[RECV_LEN];
-    uint8_t command;
-    int ret = -1;
-    
-    Kcpev *client = w->data;
+    const int header_size = sizeof(uint32_t) + sizeof(uint8_t);
+    check(len >= header_size, "recv data len < %d", header_size);
 
-    int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
-    check(len > 0, "");
+    uint32_t real_len = ntohl(*(const uint32_t *)buf);
+    check(real_len == len, "recv data len error, len = %d, real_len = %d", len, real_len);
 
-    buf[len] = '\0';
-    command = (uint8_t)buf[0];
+    uint8_t command = *(uint8_t *)(buf + sizeof(uint32_t));
+
+    const char *data = buf + header_size;
+    int data_len = len - header_size;
+
     switch(command)
     {
         case COMMAND_DATA:
-            debug("tcp recv from server: %s", buf);
+            client->recv_cb(client, data, data_len);
             break;
 
-        case COMMAND_SET_KEY:
-            if(len != sizeof(kcpev_key) + 1)
+        case COMMAND_SHAKE_HAND:
+            if(data_len != sizeof(kcpev_key))
             {
                  log_err("set key data len error");
                  return;
             }
-            memcpy(client->key.uuid, buf + 1, sizeof(kcpev_key));
+            memcpy(client->key.uuid, data, sizeof(kcpev_key));
 
             char uuids[37];
             uuid_unparse(client->key.uuid, uuids);
@@ -402,16 +403,109 @@ void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
             // udp shake hand
             if(client->udp.sock)
             {
-                send(client->udp.sock, buf, len, 0);
+                sock_send_command(client->udp.sock, COMMAND_SHAKE_HAND, data, data_len);
             }
             break;
 
-        default:
-            log_err("unrecognized command from server");
+        case COMMAND_HEARTBEAT:
             break;
-    }
 
-    return;
+        default:
+            sentinel("unrecognized command from server");
+    }
+   
+    return 0;
+
+error:
+    return -1;
+}
+
+// buf = uint32_t(len) + uint8_t(command) + data
+// #define COMMAND_DATA        0   # 普通数据
+// #define COMMAND_SHAKE_HAND  1   # 握手
+// #define COMMAND_HEARTBEAT   2   # 心跳
+int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, int len, const struct sockaddr *client_addr, int addr_size)
+{
+    const int header_size = sizeof(uint32_t) + sizeof(uint8_t);
+    check(len >= header_size, "recv data len < %d", header_size);
+
+    uint32_t real_len = ntohl(*(const uint32_t *)buf);
+    check(real_len == len, "recv data len error");
+
+    uint8_t command = *(uint8_t *)(buf + sizeof(uint32_t));
+
+    const char *data = buf + header_size;
+    int data_len = len - header_size;
+
+	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+	int ret = -1;
+
+	ret = getnameinfo(client_addr, addr_size, hbuf, sizeof(hbuf), \
+		sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+	check(ret == 0, "");
+
+    switch(command)
+    {
+        case COMMAND_DATA:
+			
+			// debug("recv client data: [%s : %s], [%d]", hbuf, sbuf, data_len);
+            server->recv_cb(server, client, data, data_len);
+            break;
+
+        case COMMAND_SHAKE_HAND:
+            check(data_len == sizeof(kcpev_key), "udp shake len error [%s : %s]", hbuf, sbuf);
+
+            kcpev_key *key = (kcpev_key *)data;
+            client = NULL;
+            
+            HASH_FIND(hh, server->hash, key, sizeof(kcpev_key), client);
+            check(client, "udp shake client key not find [%s : %s]", hbuf, sbuf);
+
+            // udp may failed, if so, use tcp then
+            ret = connect_client_udp(client, server->port, client_addr, \
+                addr_size, server->loop, client);
+            check_goto(ret >= 0, "connect_client_udp", shake_error);
+
+            client->server = server;
+
+			char *msg = "hi client";
+
+			sock_send_command(client->udp.sock, COMMAND_DATA, msg, strlen(msg));
+
+            if(ret >= 0)
+                debug("recv client shake hand msg");
+
+	shake_error:
+            break;
+
+        case COMMAND_HEARTBEAT:
+            break;
+
+        default:
+            sentinel("unrecognized command from server");
+    }
+   
+    return 0;
+
+error:
+    return -1;
+}
+
+
+void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
+{
+    char buf[KCPEV_BUFFER_SIZE];
+    uint8_t command;
+    int ret = -1;
+    
+    Kcpev *client = w->data;
+
+    int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
+    check(len > 0, "");
+
+	ret = on_client_recv(client, buf, len);
+	check(ret == 0, "");
+	return;
 
 error:
     debug("tcp recv error");
@@ -423,7 +517,7 @@ int try_kcp_recv(Kcpev *kcpev)
 {
     ikcpcb *kcp = kcpev->udp.kcp;
 
-	char buf[RECV_LEN];
+	char buf[KCPEV_BUFFER_SIZE];
     int result = -1;
     for(;;)
     {
@@ -433,18 +527,20 @@ int try_kcp_recv(Kcpev *kcpev)
 
         struct sockaddr_storage client_addr;
         socklen_t addr_size = sizeof(client_addr);
-        getpeername(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
-        char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-        int ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
-            sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+		result = getpeername(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
+		check(result == 0, "getpeername");
 
-        /*debug("kcp recv client [%s:%s]: [%d]\n", hbuf, sbuf, len);*/
-        result = 0;
-
+        // debug("kcp recv client [%d]\n", len);
         if(kcpev->server)
-            kcpev->server->recv_cb(kcpev->server, kcpev, buf, len);
+		{
+			result = on_server_recv(kcpev->server, kcpev, buf, len, (struct sockaddr*)&client_addr, addr_size);
+			check(result == 0, "");
+		}
         else
-            kcpev->recv_cb(kcpev, buf, len);
+		{
+			result = on_client_recv(kcpev, buf, len);
+			check(result == 0, "");
+		}
     }
 
 error:
@@ -514,11 +610,9 @@ error:
 // 否则说明握手成功，用 kcp 接收数据
 void client_udp_recv(EV_P_ struct ev_io *w, int revents)
 {
-    char buf[RECV_LEN];
+    char buf[KCPEV_BUFFER_SIZE];
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "");
-    buf[len] = '\0';
-
     Kcpev *client = w->data;
 
     if(!client->udp.kcp->conv)
@@ -527,7 +621,7 @@ void client_udp_recv(EV_P_ struct ev_io *w, int revents)
         int ret = check_create_kcp_timer(client);
         check(ret >= 0, "check_create_kcp_timer");
 
-        debug("shake hand successfully.");
+        debug("shake hand successfully conv: %d.", client->udp.kcp->conv);
         return;
     }
 
@@ -552,19 +646,23 @@ void close_client(Kcpev *client)
 
 void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
 {
-    char buf[RECV_LEN];
+	struct sockaddr_storage client_addr;
+
+    char buf[KCPEV_BUFFER_SIZE];
     Kcpev *client = w->data;
 
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "client tcp closed");
-    buf[len] = '\0';
  
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
 
     debug("tcp recv from client[%s]: [%d]", uuids, len);
 
-    client->server->recv_cb(client->server, client, buf, len);
+	socklen_t addr_size = sizeof(client_addr);
+	getpeername(client->tcp.sock, (struct sockaddr*)&client_addr, &addr_size);
+
+	on_server_recv(client->server, client, buf, len, (struct sockaddr*)&client_addr, addr_size);
     return;
 
 error:
@@ -574,16 +672,16 @@ error:
 
 void server_udp_recv(EV_P_ struct ev_io *w, int revents)
 {
-    char buf[RECV_LEN];
+    char buf[KCPEV_BUFFER_SIZE];
     Kcpev *client = w->data;
 
-    int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
+    int len = recv(w->fd, buf, sizeof(buf), 0);
     check(len > 0, "");
-  
-    buf[len] = '\0';
 
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
+
+	//debug("udp recv from client[%s : %d]: [%d]", uuids, client->udp.kcp->conv, len);
 
     ikcp_input(client->udp.kcp, buf, len);
  
@@ -612,9 +710,6 @@ int connect_client_udp(Kcpev *client, char *port, struct sockaddr *addr, socklen
 
     ret = check_create_kcp_timer(client);
     check(ret >= 0, "check_create_kcp_timer");
-
-    char *msg = "hi client";
-    send(client->udp.sock, msg, strlen(msg), 0);
     return 0;
 
 error:
@@ -652,11 +747,8 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
     uuid_unparse(client->key.uuid, uuids);
 	debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
 
-    // send client key
-    char buf[RECV_LEN];
-    buf[0] = COMMAND_SET_KEY;
-    memcpy(buf + 1, &client->key, sizeof(kcpev_key));
-    send(client->tcp.sock, buf, sizeof(kcpev_key) + 1, 0);
+    // shake hand
+	kcpev_send_command(client, COMMAND_SHAKE_HAND, (char *)&client->key, sizeof(kcpev_key));
 
     return;
 
@@ -673,56 +765,20 @@ void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
 {
 	struct sockaddr_storage client_addr;
 	socklen_t addr_size = sizeof(client_addr);
-    char buf[RECV_LEN];
+    char buf[KCPEV_BUFFER_SIZE];
+	int ret = -1;
 
 	int len = recvfrom(w->fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
     check(len > 0, "server recvfrom");
 
-    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-    int ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
-        sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
-    check(ret >= 0, "getnameinfo");
-
-    uint8_t command = (uint8_t)buf[0];
-
     KcpevServer *server = w->data;
 
-    // command: 
-    // 1: udp握手, data = key
-    switch(command)
-    {
-        case COMMAND_SHAKE_HAND:
-            check(len == 1 + sizeof(kcpev_key), "udp shake len error [%s : %s]", hbuf, sbuf);
+	ret = on_server_recv(server, NULL, buf, len, (struct sockaddr *)&client_addr, addr_size);
+	check(ret == 0, "");
 
-            kcpev_key *key = (kcpev_key *)(buf + 1);
-            Kcpev *client = NULL;
-            
-            HASH_FIND(hh, server->hash, key, sizeof(kcpev_key), client);
-            check(client, "udp shake client key not find [%s : %s]", hbuf, sbuf);
-
-            // udp may failed, if so, use tcp then
-            ret = connect_client_udp(client, server->port, (struct sockaddr *)&client_addr, \
-                addr_size, server->loop, client);
-            check_goto(ret >= 0, "connect_client_udp", shake_error);
-
-            client->server = (KcpevServer *)w->data;
-
-            if(ret >= 0)
-                debug("recv client shake hand msg");
-
-            break;
-    shake_error:
-            break;
-        default:
-            sentinel("server_udp_recv_all command error");
-    }
-
-    buf[len] = '\0';
-
-    debug("udp_all recv client [%s : %s]: [%d]\n", hbuf, sbuf, len);
+    //debug("udp_all recv client: [%d]\n", len);
 
 error:
-
     return;
 }
 
@@ -836,17 +892,64 @@ int is_kcp_valid(Kcpev *kcpev)
     return 1;
 }
 
-int kcpev_send(Kcpev *kcpev, const char *msg, int len)
+uint32_t pack_send_buf(char *buf, uint32_t buf_size, uint8_t command, const char *msg, int len)
 {
+	const int header_size = sizeof(uint8_t) + sizeof(uint32_t);
+	const uint32_t real_size = len + header_size;
+	check(buf_size >= real_size && len >= 0, "buf exceed max size, buf size: %d, max size: %d", \
+		len, buf_size - header_size);
+
+	*(uint32_t *)(buf) = htonl(real_size);
+    *(uint8_t *)(buf + sizeof(uint32_t)) = command;
+    memcpy(buf + header_size, msg, len);
+	return real_size;
+
+error:
+	return 0;
+}
+
+int sock_send_command(int sock, uint8_t command, const char *msg, int len)
+{
+	char buf[KCPEV_BUFFER_SIZE];
+	int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
+	check(real_size > 0, "pack_send_buf");
+
+	return send(sock, buf, real_size, 0);
+
+error:
+	return -1;
+}
+
+int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, int len)
+{
+	char buf[KCPEV_BUFFER_SIZE];
+	int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
+	check(real_size > 0, "pack_send_buf");
+
     // 如果kcp能用，就用kcp来发消息，否则用tcp
     if(is_kcp_valid(kcpev))
     {
-        int ret = ikcp_send(kcpev->udp.kcp, msg, len);
-        kcpev_timer_repeat(kcpev);
+        int ret = ikcp_send(kcpev->udp.kcp, buf, real_size);
+        //kcpev_timer_repeat(kcpev);
         return ret;
     }
     else
-        return send(kcpev->tcp.sock, msg, len, 0);
+	{
+        return send(kcpev->tcp.sock, buf, real_size, 0);
+	}
+
+error:
+	return -1;
+}
+
+int kcpev_send(Kcpev *kcpev, const char *msg, int len)
+{
+	return kcpev_send_command(kcpev, COMMAND_DATA, msg, len);
+}
+
+int kcpev_send_tcp(Kcpev *kcpev, const char *msg, int len)
+{
+	return sock_send_command(kcpev->tcp.sock, COMMAND_DATA, msg, len);
 }
 
 void kcpev_set_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb, kcpev_disconnect_cb disconnect_cb)

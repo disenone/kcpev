@@ -11,19 +11,15 @@
 // 基于kcpev的客户端
 //
 
+
 void stdin_read(EV_P_ struct ev_io *w, int revents)
 {
-	char buf[RECV_LEN];
+	char buf[KCPEV_BUFFER_SIZE];
 	char *buf_in;
 	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
 	check(buf_in != NULL, "get stdin");
-
-    /*Kcpev *kcpev = w->data;	*/
-    /*send(kcpev->udp.sock, buf, strlen(buf), 0);*/
-    /*ikcpcb *kcp = ((Kcpev *)w->data)->udp.kcp;*/
-    /*ikcp_send(kcp, buf, strlen(buf));*/
-
-    kcpev_send(w->data, buf, strlen(buf));
+    int ret = kcpev_send(w->data, buf, strlen(buf));
+	check(ret == 0, "");
 
 	printf(">> ");
 	fflush(stdout);

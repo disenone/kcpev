@@ -117,17 +117,17 @@ void kcpev_server_destroy(KcpevServer *kcpev)
 
 static int setnonblocking(int fd) 
 {
-	int flag = fcntl(fd, F_GETFL, 0);
-	if(flag < 0) 
-	{
-		return -1;
-	}
-	if(fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0) 
-	{
-		return -1;
-	}
+    int flag = fcntl(fd, F_GETFL, 0);
+    if(flag < 0) 
+    {
+        return -1;
+    }
+    if(fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0) 
+    {
+        return -1;
+    }
 
-	return 0;
+    return 0;
 }
 
 // create ipv4 or ipv6 socket
@@ -137,31 +137,31 @@ static int setnonblocking(int fd)
 // family = AF_UNSPEC or AF_INET or AF_INET6
 int kcpev_bind_socket(kcpev_sock *sock, int sock_type, const char *port, int family, int reuse)
 {
-   	struct addrinfo hints, *addr;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = family;
-	hints.ai_socktype = sock_type;	
-	hints.ai_flags = AI_PASSIVE;
+    struct addrinfo hints, *addr;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = family;
+    hints.ai_socktype = sock_type;    
+    hints.ai_flags = AI_PASSIVE;
 
-	int ret = getaddrinfo(NULL, port, &hints, &addr);
-	check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
+    int ret = getaddrinfo(NULL, port, &hints, &addr);
+    check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
 
     sock->sock = 0; 
 
-	struct addrinfo *p;
-	for(p = addr; p != NULL; p = p->ai_next)
-	{
-		int s = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    struct addrinfo *p;
+    for(p = addr; p != NULL; p = p->ai_next)
+    {
+        int s = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         check_goto(s >= 0, "socket", sock_error);
 
         if(reuse)
         {
             int opt = 1;
-		    ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+            ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
             check(ret >= 0, "set reuse addr");
         }
 
-		ret = bind(s, p->ai_addr, p->ai_addrlen);
+        ret = bind(s, p->ai_addr, p->ai_addrlen);
         check_goto(ret >= 0, "bind", sock_error);
 
         /*ret = setnonblocking(s);*/
@@ -173,13 +173,13 @@ int kcpev_bind_socket(kcpev_sock *sock, int sock_type, const char *port, int fam
     sock_error:
         if(s >= 0)
             close(s);
-	}
+    }
 
-	freeaddrinfo(addr);
+    freeaddrinfo(addr);
 
-	check(sock->sock, "failed to create socket!");
+    check(sock->sock, "failed to create socket!");
 
-	return 0;
+    return 0;
 
 error:
     return -1;   
@@ -235,20 +235,20 @@ int kcpev_connect_socket(kcpev_sock *sock, int sock_type, const char *address, c
     if(!sock->sock)
         return -1;
 
-   	struct addrinfo hints, *addr;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = sock_type;	
-	hints.ai_flags = AI_PASSIVE;
+    struct addrinfo hints, *addr;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = sock_type;    
+    hints.ai_flags = AI_PASSIVE;
 
-	int ret = getaddrinfo(address, port, &hints, &addr);
-	check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
+    int ret = getaddrinfo(address, port, &hints, &addr);
+    check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
 
-	struct addrinfo *p;
+    struct addrinfo *p;
     int success = -1;
-	for(p = addr; p != NULL; p = p->ai_next)
-	{
-		ret = connect(sock->sock, p->ai_addr, p->ai_addrlen);
+    for(p = addr; p != NULL; p = p->ai_next)
+    {
+        ret = connect(sock->sock, p->ai_addr, p->ai_addrlen);
         if(ret < 0)
         {
             log_err("connect");
@@ -256,7 +256,7 @@ int kcpev_connect_socket(kcpev_sock *sock, int sock_type, const char *address, c
         }
         success = 0;
         break;
-	}
+    }
   
     check(success == 0, "connect");
 
@@ -278,7 +278,7 @@ inline int kcpev_connect_udp(kcpev_udp *sock, const char *address, const char *p
 
 int kcpev_connect(Kcpev *kcpev, const char *address, const char *port)
 {
-     int ret = 0;
+    int ret = 0;
 
     // tcp连接是必须的
     ret = kcpev_connect_tcp(&kcpev->tcp, address, port);
@@ -322,11 +322,11 @@ error:
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
     kcpev_udp *client = user;
-	int ret = send(client->sock, buf, len, 0);
-	check(ret == len, "send");
+    int ret = send(client->sock, buf, len, 0);
+    check(ret == len, "send");
 
 error:
-	return 0;
+    return 0;
 }
 
 // 创建kcp, 会使用kcpev里面的conv属性和udp套接口，
@@ -334,10 +334,10 @@ error:
 // kcp_mode: 0 默认模式, 1 普通模式, 2 极速模式
 int kcpev_create_kcp(kcpev_udp *udp, int conv, int kcp_mode)
 {
-	ikcpcb *kcp = ikcp_create(conv, udp);
+    ikcpcb *kcp = ikcp_create(conv, udp);
     check_mem(kcp);
 
-	ikcp_wndsize(kcp, 128, 128);
+    ikcp_wndsize(kcp, 128, 128);
 
     switch(kcp_mode)
     {
@@ -348,7 +348,7 @@ int kcpev_create_kcp(kcpev_udp *udp, int conv, int kcp_mode)
             ikcp_nodelay(kcp, 0, 10, 0, 1);
             break;
         case 2:
-	        ikcp_nodelay(kcp, 1, 10, 2, 1);
+            ikcp_nodelay(kcp, 1, 10, 2, 1);
             break;
         default:
             sentinel("unrecognized kcp_mode");       
@@ -389,11 +389,8 @@ int on_client_recv(Kcpev *client, const char *buf, int len)
             break;
 
         case COMMAND_SHAKE_HAND:
-            if(data_len != sizeof(kcpev_key))
-            {
-                 log_err("set key data len error");
-                 return;
-            }
+            check(data_len == sizeof(kcpev_key), "set key data len error");
+
             memcpy(client->key.uuid, data, sizeof(kcpev_key));
 
             char uuids[37];
@@ -437,18 +434,18 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, int len,
     const char *data = buf + header_size;
     int data_len = len - header_size;
 
-	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-	int ret = -1;
+    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+    int ret = -1;
 
-	ret = getnameinfo(client_addr, addr_size, hbuf, sizeof(hbuf), \
-		sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
-	check(ret == 0, "");
+    ret = getnameinfo(client_addr, addr_size, hbuf, sizeof(hbuf), \
+        sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+    check(ret == 0, "");
 
     switch(command)
     {
         case COMMAND_DATA:
-			
-			// debug("recv client data: [%s : %s], [%d]", hbuf, sbuf, data_len);
+            
+            // debug("recv client data: [%s : %s], [%d]", hbuf, sbuf, data_len);
             server->recv_cb(server, client, data, data_len);
             break;
 
@@ -468,14 +465,14 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, int len,
 
             client->server = server;
 
-			char *msg = "hi client";
+            char *msg = "hi client";
 
-			sock_send_command(client->udp.sock, COMMAND_DATA, msg, strlen(msg));
+            sock_send_command(client->udp.sock, COMMAND_DATA, msg, strlen(msg));
 
             if(ret >= 0)
                 debug("recv client shake hand msg");
 
-	shake_error:
+    shake_error:
             break;
 
         case COMMAND_HEARTBEAT:
@@ -503,9 +500,9 @@ void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "");
 
-	ret = on_client_recv(client, buf, len);
-	check(ret == 0, "");
-	return;
+    ret = on_client_recv(client, buf, len);
+    check(ret == 0, "");
+    return;
 
 error:
     debug("tcp recv error");
@@ -517,7 +514,7 @@ int try_kcp_recv(Kcpev *kcpev)
 {
     ikcpcb *kcp = kcpev->udp.kcp;
 
-	char buf[KCPEV_BUFFER_SIZE];
+    char buf[KCPEV_BUFFER_SIZE];
     int result = -1;
     for(;;)
     {
@@ -527,20 +524,20 @@ int try_kcp_recv(Kcpev *kcpev)
 
         struct sockaddr_storage client_addr;
         socklen_t addr_size = sizeof(client_addr);
-		result = getpeername(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
-		check(result == 0, "getpeername");
+        result = getpeername(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
+        check(result == 0, "getpeername");
 
         // debug("kcp recv client [%d]\n", len);
         if(kcpev->server)
-		{
-			result = on_server_recv(kcpev->server, kcpev, buf, len, (struct sockaddr*)&client_addr, addr_size);
-			check(result == 0, "");
-		}
+        {
+            result = on_server_recv(kcpev->server, kcpev, buf, len, (struct sockaddr*)&client_addr, addr_size);
+            check(result == 0, "");
+        }
         else
-		{
-			result = on_client_recv(kcpev, buf, len);
-			check(result == 0, "");
-		}
+        {
+            result = on_client_recv(kcpev, buf, len);
+            check(result == 0, "");
+        }
     }
 
 error:
@@ -554,33 +551,33 @@ void kcpev_timer_repeat(Kcpev *kcpev)
 
     struct ev_loop *loop = kcpev->loop;
     ev_timer *evt = kcpev->udp.evt;
-	ikcpcb *kcp = kcpev->udp.kcp;
+    ikcpcb *kcp = kcpev->udp.kcp;
 
-	uint64_t now64 = ev_now(EV_A) * 1000;
-	uint32_t now = now64 & 0xfffffffful;
+    uint64_t now64 = ev_now(EV_A) * 1000;
+    uint32_t now = now64 & 0xfffffffful;
 
-	// use ikcp_check to decide if really need ikcp_update
-	uint32_t next = ikcp_check(kcp, now);
+    // use ikcp_check to decide if really need ikcp_update
+    uint32_t next = ikcp_check(kcp, now);
 
-	if (next <= now)
-	{
-		ikcp_update(kcp, now);
-		next = ikcp_check(kcp, now);
-	}
+    if (next <= now)
+    {
+        ikcp_update(kcp, now);
+        next = ikcp_check(kcp, now);
+    }
 
-	if (next <= now)
-		evt->repeat = 0.01;
-	else
-		evt->repeat = (next - now) / 1000.0;
-	/*debug("%u, %u, %lf", now, next, w->repeat);*/
-	ev_timer_again(EV_A_ evt);
+    if (next <= now)
+        evt->repeat = 0.01;
+    else
+        evt->repeat = (next - now) / 1000.0;
+    /*debug("%u, %u, %lf", now, next, w->repeat);*/
+    ev_timer_again(EV_A_ evt);
 
 }
 
 void kcpev_on_timer(EV_P_ ev_timer *w, int revents)
 {
     kcpev_timer_repeat((Kcpev *)w->data);
-	try_kcp_recv(w->data);
+    try_kcp_recv(w->data);
 }
 
 // create kcp timer here
@@ -646,7 +643,7 @@ void close_client(Kcpev *client)
 
 void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
 {
-	struct sockaddr_storage client_addr;
+    struct sockaddr_storage client_addr;
 
     char buf[KCPEV_BUFFER_SIZE];
     Kcpev *client = w->data;
@@ -659,10 +656,10 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
 
     debug("tcp recv from client[%s]: [%d]", uuids, len);
 
-	socklen_t addr_size = sizeof(client_addr);
-	getpeername(client->tcp.sock, (struct sockaddr*)&client_addr, &addr_size);
+    socklen_t addr_size = sizeof(client_addr);
+    getpeername(client->tcp.sock, (struct sockaddr*)&client_addr, &addr_size);
 
-	on_server_recv(client->server, client, buf, len, (struct sockaddr*)&client_addr, addr_size);
+    on_server_recv(client->server, client, buf, len, (struct sockaddr*)&client_addr, addr_size);
     return;
 
 error:
@@ -681,7 +678,7 @@ void server_udp_recv(EV_P_ struct ev_io *w, int revents)
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
 
-	//debug("udp recv from client[%s : %d]: [%d]", uuids, client->udp.kcp->conv, len);
+    //debug("udp recv from client[%s : %d]: [%d]", uuids, client->udp.kcp->conv, len);
 
     ikcp_input(client->udp.kcp, buf, len);
  
@@ -722,9 +719,9 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
 {
     Kcpev *client = NULL;
 
-	struct sockaddr_storage client_addr;
-	socklen_t addr_size = sizeof(client_addr);
-	int client_sock = accept(w->fd, (struct sockaddr *)&client_addr, &addr_size);
+    struct sockaddr_storage client_addr;
+    socklen_t addr_size = sizeof(client_addr);
+    int client_sock = accept(w->fd, (struct sockaddr *)&client_addr, &addr_size);
     check(client_sock > 0, "accept");
 
     char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
@@ -745,10 +742,10 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
 
     char uuids[37];
     uuid_unparse(client->key.uuid, uuids);
-	debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
+    debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
 
     // shake hand
-	kcpev_send_command(client, COMMAND_SHAKE_HAND, (char *)&client->key, sizeof(kcpev_key));
+    kcpev_send_command(client, COMMAND_SHAKE_HAND, (char *)&client->key, sizeof(kcpev_key));
 
     return;
 
@@ -763,18 +760,18 @@ error:
 // 接收客户端的udp信息
 void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
 {
-	struct sockaddr_storage client_addr;
-	socklen_t addr_size = sizeof(client_addr);
+    struct sockaddr_storage client_addr;
+    socklen_t addr_size = sizeof(client_addr);
     char buf[KCPEV_BUFFER_SIZE];
-	int ret = -1;
+    int ret = -1;
 
-	int len = recvfrom(w->fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
+    int len = recvfrom(w->fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
     check(len > 0, "server recvfrom");
 
     KcpevServer *server = w->data;
 
-	ret = on_server_recv(server, NULL, buf, len, (struct sockaddr *)&client_addr, addr_size);
-	check(ret == 0, "");
+    ret = on_server_recv(server, NULL, buf, len, (struct sockaddr *)&client_addr, addr_size);
+    check(ret == 0, "");
 
     //debug("udp_all recv client: [%d]\n", len);
 
@@ -804,7 +801,7 @@ error:
 
 int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback tcp_cb, ev_io_callback udp_cb)
 {
-	check(kcpev, "kcpev is NULL");
+    check(kcpev, "kcpev is NULL");
 
     kcpev->loop = loop;
 
@@ -894,37 +891,37 @@ int is_kcp_valid(Kcpev *kcpev)
 
 uint32_t pack_send_buf(char *buf, uint32_t buf_size, uint8_t command, const char *msg, int len)
 {
-	const int header_size = sizeof(uint8_t) + sizeof(uint32_t);
-	const uint32_t real_size = len + header_size;
-	check(buf_size >= real_size && len >= 0, "buf exceed max size, buf size: %d, max size: %d", \
-		len, buf_size - header_size);
+    const int header_size = sizeof(uint8_t) + sizeof(uint32_t);
+    const uint32_t real_size = len + header_size;
+    check(buf_size >= real_size && len >= 0, "buf exceed max size, buf size: %d, max size: %d", \
+        len, buf_size - header_size);
 
-	*(uint32_t *)(buf) = htonl(real_size);
+    *(uint32_t *)(buf) = htonl(real_size);
     *(uint8_t *)(buf + sizeof(uint32_t)) = command;
     memcpy(buf + header_size, msg, len);
-	return real_size;
+    return real_size;
 
 error:
-	return 0;
+    return 0;
 }
 
 int sock_send_command(int sock, uint8_t command, const char *msg, int len)
 {
-	char buf[KCPEV_BUFFER_SIZE];
-	int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
-	check(real_size > 0, "pack_send_buf");
+    char buf[KCPEV_BUFFER_SIZE];
+    int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
+    check(real_size > 0, "pack_send_buf");
 
-	return send(sock, buf, real_size, 0);
+    return send(sock, buf, real_size, 0);
 
 error:
-	return -1;
+    return -1;
 }
 
 int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, int len)
 {
-	char buf[KCPEV_BUFFER_SIZE];
-	int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
-	check(real_size > 0, "pack_send_buf");
+    char buf[KCPEV_BUFFER_SIZE];
+    int real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
+    check(real_size > 0, "pack_send_buf");
 
     // 如果kcp能用，就用kcp来发消息，否则用tcp
     if(is_kcp_valid(kcpev))
@@ -934,22 +931,22 @@ int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, int len)
         return ret;
     }
     else
-	{
+    {
         return send(kcpev->tcp.sock, buf, real_size, 0);
-	}
+    }
 
 error:
-	return -1;
+    return -1;
 }
 
 int kcpev_send(Kcpev *kcpev, const char *msg, int len)
 {
-	return kcpev_send_command(kcpev, COMMAND_DATA, msg, len);
+    return kcpev_send_command(kcpev, COMMAND_DATA, msg, len);
 }
 
 int kcpev_send_tcp(Kcpev *kcpev, const char *msg, int len)
 {
-	return sock_send_command(kcpev->tcp.sock, COMMAND_DATA, msg, len);
+    return sock_send_command(kcpev->tcp.sock, COMMAND_DATA, msg, len);
 }
 
 void kcpev_set_cb(Kcpev *kcpev, kcpev_recv_cb recv_cb, kcpev_disconnect_cb disconnect_cb)

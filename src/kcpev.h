@@ -14,7 +14,7 @@
 
 #define COMMAND_DATA        0   // 普通数据
 #define COMMAND_SHAKE_HAND  1   // 握手
-#define COMMAND_HEARTBEAT	2   // 心跳
+#define COMMAND_HEARTBEAT   2   // 心跳
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,8 +25,8 @@ typedef struct
     uint32_t r1;
     uint32_t r2;
     uint32_t r3;
-	uint16_t r4;
-	uint8_t r5;
+    uint16_t r4;
+    uint8_t r5;
     uint8_t conv;
 } kcpev_skey;
 

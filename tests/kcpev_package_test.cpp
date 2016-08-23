@@ -36,6 +36,8 @@ error:
 
 void on_timer(EV_P_ struct ev_timer *w, int revents)
 {
+	static int odd = 0;
+
     Kcpev *kcpev = (Kcpev *)w->data;
     unordered_map<int, vector<char>> *package_info = static_cast<unordered_map<int, vector<char>> *>(kcpev->data);
     if(package_info->size() > 1000)
@@ -47,7 +49,12 @@ void on_timer(EV_P_ struct ev_timer *w, int revents)
     *(int *)buf = package_info->size();
     package_info->emplace(package_info->size(), vector<char>(buf, buf + len));
 
-    kcpev_send(kcpev, buf, len);
+	odd = (odd + 1) % 2;
+
+	if(odd)
+	    kcpev_send(kcpev, buf, len);
+	else
+		kcpev_send_tcp(kcpev, buf, len);
 }
 
 Kcpev* create_client()

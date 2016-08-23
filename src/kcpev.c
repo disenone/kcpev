@@ -393,7 +393,7 @@ int on_client_recv(Kcpev *client, const char *buf, int len)
 
             memcpy(client->key.uuid, data, sizeof(kcpev_key));
 
-            char uuids[37];
+            char uuids[UUID_PARSE_SIZE];
             uuid_unparse(client->key.uuid, uuids);
             debug("set key successfully [%s]!", uuids);
 
@@ -427,7 +427,7 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, int len,
     check(len >= header_size, "recv data len < %d", header_size);
 
     uint32_t real_len = ntohl(*(const uint32_t *)buf);
-    check(real_len == len, "recv data len error");
+    check(real_len == len, "recv data len error len = %d, real_len = %d", len, real_len);
 
     uint8_t command = *(uint8_t *)(buf + sizeof(uint32_t));
 
@@ -460,10 +460,8 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, int len,
 
             // udp may failed, if so, use tcp then
             ret = connect_client_udp(client, server->port, client_addr, \
-                addr_size, server->loop, client);
+                addr_size, server->loop);
             check_goto(ret >= 0, "connect_client_udp", shake_error);
-
-            client->server = server;
 
             char *msg = "hi client";
 
@@ -651,10 +649,10 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     int len = recv(w->fd, buf, sizeof(buf) - 1, 0);
     check(len > 0, "client tcp closed");
  
-    char uuids[37];
+    char uuids[UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
 
-    debug("tcp recv from client[%s]: [%d]", uuids, len);
+    //debug("tcp recv from client[%s]: [%d]", uuids, len);
 
     socklen_t addr_size = sizeof(client_addr);
     getpeername(client->tcp.sock, (struct sockaddr*)&client_addr, &addr_size);
@@ -675,7 +673,7 @@ void server_udp_recv(EV_P_ struct ev_io *w, int revents)
     int len = recv(w->fd, buf, sizeof(buf), 0);
     check(len > 0, "");
 
-    char uuids[37];
+    char uuids[UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
 
     //debug("udp recv from client[%s : %d]: [%d]", uuids, client->udp.kcp->conv, len);
@@ -691,7 +689,7 @@ error:
 
 // try create udp connection
 int connect_client_udp(Kcpev *client, char *port, struct sockaddr *addr, socklen_t addr_size, \
-    struct ev_loop *loop, void *data)
+    struct ev_loop *loop)
 {
     int ret = kcpev_bind_udp(&client->udp, port, addr->sa_family, 1);
     check(ret >= 0, "server udp bind");
@@ -702,7 +700,7 @@ int connect_client_udp(Kcpev *client, char *port, struct sockaddr *addr, socklen
     ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, 2);
     check(ret >= 0, "client udp create kcp");
 
-    ret = kcpev_init_ev(client, loop, data, server_tcp_recv, server_udp_recv);
+    ret = kcpev_init_ev(client, loop, client, server_tcp_recv, server_udp_recv);
     check(ret >= 0, "client init ev");
 
     ret = check_create_kcp_timer(client);
@@ -735,14 +733,20 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
     client = kcpev_create();
     check_mem(client);
 
+    client->server = server;
     client->tcp.sock = client_sock;
     uuid_generate(client->key.uuid);
+
     // create hashtable for client kcpev
     HASH_ADD(hh, server->hash, key, sizeof(kcpev_key), client);
 
-    char uuids[37];
+    char uuids[UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
     debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
+
+	// set up tcp ev
+    ret = kcpev_init_ev(client, loop, client, server_tcp_recv, NULL);
+    check(ret >= 0, "client init ev");
 
     // shake hand
     kcpev_send_command(client, COMMAND_SHAKE_HAND, (char *)&client->key, sizeof(kcpev_key));
@@ -804,9 +808,13 @@ int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback
     check(kcpev, "kcpev is NULL");
 
     kcpev->loop = loop;
+	int ret = -1;
 
-    int ret = kcpev_set_ev(loop, data, (kcpev_sock *)&kcpev->tcp, tcp_cb);
-    check(ret >= 0, "set tcp ev");
+	if(tcp_cb)
+	{
+		ret = kcpev_set_ev(loop, data, (kcpev_sock *)&kcpev->tcp, tcp_cb);
+		check(ret >= 0, "set tcp ev");
+	}
 
     if(udp_cb)
     {

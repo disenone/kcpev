@@ -11,7 +11,6 @@
 // 基于kcpev的客户端
 //
 
-
 void stdin_read(EV_P_ struct ev_io *w, int revents)
 {
 	char buf[KCPEV_BUFFER_SIZE];
@@ -19,7 +18,7 @@ void stdin_read(EV_P_ struct ev_io *w, int revents)
 	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
 	check(buf_in != NULL, "get stdin");
     int ret = kcpev_send(w->data, buf, strlen(buf));
-	check(ret == 0, "");
+	check(ret >= 0, "");
 
 	printf(">> ");
 	fflush(stdout);

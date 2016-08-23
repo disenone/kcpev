@@ -11,6 +11,7 @@
 #define KCPEV_BUFFER_SIZE 65536
 #define NI_MAXHOST 1025
 #define NI_MAXSERV 32
+#define UUID_PARSE_SIZE 37
 
 #define COMMAND_DATA        0   // 普通数据
 #define COMMAND_SHAKE_HAND  1   // 握手

@@ -1,8 +1,8 @@
 INCLUDE= -Isrc -Ithird_party/uthash/src/ -Ithird_party/googletest/googletest/include/
-LDPATH = -L third_party/googletest/build/googlemock/gtest
+LDPATH = -L third_party/googletest/build/googlemock/gtest -L third_party/uthash/libut
 CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
 CXXFLAGS=-std=c++11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
-LIBS=-luuid -lev -lgtest $(OPTLIBS)
+LIBS=-luuid -lev -lgtest -lut $(OPTLIBS)
 LDLIBS=$(LIBS)
 PREFIX?=/usr/local
 
@@ -29,7 +29,7 @@ $(TARGET): build $(OBJECTS)
 	ranlib $@
 
 $(SO_TARGET): $(TARGET) $(OBJECTS)
-	$(CC) -shared -o $@ -luuid -lev $(OBJECTS)
+	$(CC) -shared -o $@ $(LDPATH) $(LIBS) $(OBJECTS)
 
 build:
 	@mkdir -p build

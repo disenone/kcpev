@@ -2,11 +2,11 @@
 [![Build Status](https://travis-ci.org/disenone/kcpev.svg?branch=master)
 ](https://travis-ci.org/disenone/kcpev)
 
-#######
+==========
 设计：
 TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)
 
-######
+==========
 ###Feature:
 * tcp 和 udp 收发，默认使用 udp；udp 不可用时切换为 tcp，也可以强行使用 tcp
 * tcp 包使用 ringbuf 来重组，保证完整

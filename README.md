@@ -2,7 +2,6 @@
 [![Build Status](https://travis-ci.org/disenone/kcpev.svg?branch=master)
 ](https://travis-ci.org/disenone/kcpev)
 
-==========
 设计：
 TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)
 
@@ -17,19 +16,19 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 * 压测
 	- pressure_test.sh
 
-######
+==========
 ###TODO:
 * udp 心跳包
 * 断线重连
 
-######
+==========
 ###Dependency:
 * [libev](http://software.schmorp.de/pkg/libev.html)
 * libuuid: apt-get install uuid-dev 
 * [uthash](https://github.com/troydhanson/uthash)
 * [googletest](https://github.com/google/googletest.git)
 
-######
+==========
 ###Build:
 * apt-get install libev-dev uuid-dev
 * git submodule init && git submodule update 来下载第三方库

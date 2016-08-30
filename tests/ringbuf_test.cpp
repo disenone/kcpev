@@ -1,16 +1,7 @@
 #include <iostream>
 #include <kcpev.h>
 #include <gtest/gtest.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <ringbuf.h>
-
-#ifdef __cplusplus
-}
-#endif
+#include <kcpev_ringbuf.h>
 
 using namespace std;
 
@@ -42,7 +33,16 @@ TEST(RingbufTest, baseTest)
 
     EXPECT_EQ(ringbuf_get_next_chunk(rb, &data), 2);
 
-    char ret[5];
+    char ret[6];
+    ret[5] = '\0';
+    
+    EXPECT_EQ(ringbuf_copy_data(rb, ret, 6), -1); 
+    EXPECT_EQ(ringbuf_copy_data(rb, ret, 5), 0);
+    EXPECT_STREQ(ret, "abbbb");
+    EXPECT_EQ(ringbuf_copy_data(rb, ret, 3), 0);
+    ret[3] = '\0';
+    EXPECT_STREQ(ret, "abb");
+
     memcpy(ret, data, 2);
     ringbuf_mark_consumed(rb, 2);
     EXPECT_EQ(ringbuf_get_pending_size(rb), 3);
@@ -50,12 +50,15 @@ TEST(RingbufTest, baseTest)
     EXPECT_EQ(ringbuf_get_next_chunk(rb, &data), 3);
     EXPECT_EQ(data, data1);
 
-    memcpy(ret, data, 3);
+    memcpy(ret + 2, data, 3);
     ringbuf_mark_consumed(rb, 3);
     EXPECT_EQ(ringbuf_get_pending_size(rb), 0);
 
     EXPECT_EQ(ringbuf_get_next_chunk(rb, &data), 0);
     EXPECT_EQ(data, (char *)NULL);
+
+    ret[5] = '\0';
+    EXPECT_STREQ(ret, "abbbb");
 }
 
 int main(int argc, char* argv[])

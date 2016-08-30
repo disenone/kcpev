@@ -1,8 +1,8 @@
 INCLUDE= -Isrc -Ithird_party/uthash/src/ -Ithird_party/googletest/googletest/include/
-LDPATH = -L third_party/googletest/build/googlemock/gtest -L third_party/uthash/libut
+LDPATH = -L third_party/googletest/build/googlemock/gtest
 CFLAGS=-std=gnu11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
 CXXFLAGS=-std=c++11 -fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra $(INCLUDE) $(OPTFLAGS) $(LDPATH)
-LIBS=-lut -luuid -lev -lgtest $(OPTLIBS)
+LIBS=-luuid -lev -lgtest $(OPTLIBS)
 LDLIBS=$(LIBS)
 PREFIX?=/usr/local
 

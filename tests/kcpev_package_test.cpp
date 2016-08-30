@@ -12,7 +12,7 @@
 
 using namespace std;
 
-void client_recv_cb(Kcpev* kcpev, const char* buf, int len)
+void client_recv_cb(Kcpev* kcpev, const char* buf, size_t len)
 {
     unordered_map<int, vector<char>> *package_info = static_cast<unordered_map<int, vector<char>> *>(kcpev->data);
     int key = *(int *)buf;
@@ -135,7 +135,7 @@ TEST(KcpevTest, PackageTest)
     EXPECT_NE(kcpev2, (Kcpev *)NULL);
  
     ev_timer evs;
-    ev_timer_init(&evs, on_stop, 12, 0);
+    ev_timer_init(&evs, on_stop, 20, 0);
     ev_timer_start(kcpev1->loop, &evs);
    
     ev_run(kcpev1->loop, 0);

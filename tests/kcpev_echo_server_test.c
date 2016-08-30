@@ -12,6 +12,12 @@
 
 void recv_cb(KcpevServer *server, Kcpev* client, const char* buf, int len)
 {
+    /*char *data = malloc(len + 1);*/
+    /*memcpy(data, buf, len);*/
+    /*data[len] = '\0';*/
+    /*debug("%s", data);*/
+    /*free(data);*/
+
     kcpev_send(client, buf, len);
 }
 

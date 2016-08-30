@@ -18,14 +18,14 @@ then
 fi
 
 # build libut
-UT_FILE="third_party/uthash/libut/libut.so"
-if [ ! -f "$UT_FILE" ]
-then
-    cp utMakefile third_party/uthash/libut/Makefile
-	cd third_party/uthash/libut
-    make clean
-	make
-    git checkout Makefile
-	cd $ROOT
-fi
+#UT_FILE="third_party/uthash/libut/libut.so"
+#if [ ! -f "$UT_FILE" ]
+#then
+    #cp utMakefile third_party/uthash/libut/Makefile
+	#cd third_party/uthash/libut
+    #make clean
+	#make
+    #git checkout Makefile
+	#cd $ROOT
+#fi
 

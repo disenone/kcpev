@@ -13,17 +13,22 @@
 
 void stdin_read(EV_P_ struct ev_io *w, int revents)
 {
+    static int odd = 0;
+
 	char buf[KCPEV_BUFFER_SIZE];
 	char *buf_in;
+    Kcpev *kcpev = NULL;
+    int ret = -1;
+
 	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
 	check(buf_in != NULL, "get stdin");
 
-    /*Kcpev *kcpev = w->data;	*/
-    /*send(kcpev->udp.sock, buf, strlen(buf), 0);*/
-    /*ikcpcb *kcp = ((Kcpev *)w->data)->udp.kcp;*/
-    /*ikcp_send(kcp, buf, strlen(buf));*/
-
-    kcpev_send(w->data, buf, strlen(buf));
+    kcpev = (Kcpev *)w->data;
+	//odd = (odd + 1) % 2;
+	if(odd)
+	    ret = kcpev_send(kcpev, buf, strlen(buf));
+	else
+		ret = kcpev_send_tcp(kcpev, buf, strlen(buf));
 
 	printf(">> ");
 	fflush(stdout);
@@ -33,7 +38,13 @@ error:
 
 void recv_cb(void *kcpev, const char *buf, int len)
 {
-    debug("recv_cb");
+    char *data = malloc(len + 1);
+    memcpy(data, buf, len);
+    data[len] = '\0';
+    debug("%s", data);
+	printf(">> ");
+	fflush(stdout);
+    free(data);
 }
 
 

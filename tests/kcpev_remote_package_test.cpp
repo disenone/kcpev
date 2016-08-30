@@ -15,7 +15,7 @@ using namespace std;
 const char *server_ip = NULL;
 const char *server_port = NULL;
 
-void client_recv_cb(Kcpev* kcpev, const char* buf, int len)
+void client_recv_cb(Kcpev* kcpev, const char* buf, size_t len)
 {
     unordered_map<int, vector<char>> *package_info = static_cast<unordered_map<int, vector<char>> *>(kcpev->data);
     int key = *(int *)buf;

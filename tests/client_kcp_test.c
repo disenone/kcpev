@@ -108,7 +108,6 @@ void try_recv(ikcpcb *kcp)
 		fflush(stdout);
 	}
 
-error:
 	return;
 
 }

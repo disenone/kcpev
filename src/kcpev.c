@@ -585,9 +585,8 @@ size_t get_tcp_buf_chunk(Kcpev *kcpev, char *ret_data, size_t len)
         ret = ringbuf_copy_data(rb, ret_data, header.size);
         check(ret == 0, "ringbuf_copy_data");
         ringbuf_mark_consumed(rb, header.size);
+        return header.size;
     }
-
-    return header.size;
 
 error:
     return 0;

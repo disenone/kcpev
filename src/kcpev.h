@@ -38,7 +38,7 @@ typedef struct
 typedef union
 {
     KcpevSkey split_key;
-    uuid_t uuid;
+    myuuid_t uuid;
 } KcpevKey;
 
 // ´æev_io½Ó¿ÚºÍsocket
@@ -123,7 +123,6 @@ void kcpev_server_set_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb, kcpev
 
 int header_to_net(KcpevHeader *header, char *buf, size_t len);
 int header_from_net(KcpevHeader *header, const char *buf, size_t len);
-
 
 #ifdef __cplusplus
 }

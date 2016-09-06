@@ -18,19 +18,20 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 
 ==========
 ###TODO:
+* conv 有可能为0的问题
 * udp 心跳包
 * 断线重连
 
 ==========
 ###Dependency:
 * [libev](http://software.schmorp.de/pkg/libev.html)
-* libuuid: apt-get install uuid-dev 
+* [libuuid](https://github.com/karelzak/util-linux/tree/master/libuuid)
 * [uthash](https://github.com/troydhanson/uthash)
 * [googletest](https://github.com/google/googletest.git)
 
 ==========
 ###Build:
-* apt-get install libev-dev uuid-dev
+* Linux: apt-get install libev-dev uuid-dev / Mac: brew install libev
 * git submodule init && git submodule update 来下载第三方库
 * ./build_third_party.sh
 * make

@@ -5,6 +5,10 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 include(internal_utils.cmake)
 config_compiler_and_linker()
 
+message("gnu cxx ${CMAKE_COMPILER_IS_GNUCXX}")
+message("cxx flags ${CMAKE_CXX_FLAGS}")
+message("c flags ${CMAKE_C_FLAGS}")
+
 set(KCPEV_DIR ${PROJECT_SOURCE_DIR}/src)
 set(TEST_DIR ${PROJECT_SOURCE_DIR}/tests)
 
@@ -25,7 +29,7 @@ add_library(kcpev_static STATIC ${KCPEV_SOURCES})
 target_link_libraries(kcpev_static ev uuid)
 
 add_library(kcpev SHARED ${KCPEV_SOURCES})
-target_link_libraries(kcpev_static ev uuid)
+target_link_libraries(kcpev ev uuid)
 
 # build tests
 include_directories( ${TEST_DIR} )

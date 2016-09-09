@@ -14,8 +14,8 @@ TEST_C=$(patsubst %.c,%,$(TEST_SRC))
 TESTS=$(patsubst %.cpp,%,$(TEST_C))
 
 TARGET_NAME=kcpev
-TARGET=$(CURDIR)/build/lib$(TARGET_NAME).a
-SO_TARGET=$(patsubst %.a,%.so,$(TARGET))
+TARGET=$(CURDIR)/build/lib$(TARGET_NAME)_static.a
+SO_TARGET=$(CURDIR)/build/lib$(TARGET_NAME).so
 
 # The Target Build
 all: $(TARGET) $(SO_TARGET) tests
@@ -46,7 +46,7 @@ valgrind:
 
 # The Cleaner
 clean:
-	rm -rf build $(OBJECTS) $(TESTS)
+	rm -rf $(TARGET) $(SO_TARGET) $(OBJECTS) $(TESTS)
 	rm -rf bin
 	rm -f tests/tests.log
 	find . -name "*.gc*" -exec rm {} \;

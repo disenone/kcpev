@@ -9,6 +9,8 @@
 #include "ikcp.h"
 #include "kcpev.h"
 
+void server_udp_recv(EV_P_ struct ev_io *w, int revents);
+
 static void* (*kcpev_malloc_hook)(size_t) = NULL;
 static void (*kcpev_free_hook)(void *) = NULL;
 
@@ -330,7 +332,56 @@ error:
     return -1;
 }
 
-int udp_output(const char *buf, size_t len, ikcpcb *kcp, void *user)
+int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback tcp_cb, ev_io_callback udp_cb)
+{
+    check(kcpev, "kcpev is NULL");
+
+    kcpev->loop = loop;
+	int ret = -1;
+
+	if(tcp_cb)
+	{
+		ret = kcpev_set_ev(loop, data, (KcpevSock *)&kcpev->tcp, tcp_cb);
+		check(ret >= 0, "set tcp ev");
+	}
+
+    if(udp_cb)
+    {
+        ret = kcpev_set_ev(loop, data, (KcpevSock *)&kcpev->udp, udp_cb);
+        check_log(ret >= 0, "set udp ev");
+    }
+
+    return 0;
+error:
+    return -1;
+}
+
+// try create udp connection
+int connect_client_udp(Kcpev *client, char *port, const struct sockaddr *addr, socklen_t addr_size, \
+    struct ev_loop *loop)
+{
+    int ret = kcpev_bind_udp(&client->udp, port, addr->sa_family, 1);
+    check(ret >= 0, "server udp bind");
+
+    ret = connect(client->udp.sock, addr, addr_size);
+    check(ret >= 0, "connect client udp");
+
+    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, 2);
+    check(ret >= 0, "client udp create kcp");
+
+    ret = kcpev_init_ev(client, loop, client, NULL, server_udp_recv);
+    check(ret >= 0, "client init ev");
+
+    ret = check_create_kcp_timer(client);
+    check(ret >= 0, "check_create_kcp_timer");
+    return 0;
+
+error:
+    KcpevUdp_destroy(loop, &client->udp);
+    return -1;
+}
+
+int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
     KcpevUdp *client = user;
     ssize_t ret = send(client->sock, buf, len, 0);
@@ -386,12 +437,12 @@ int on_client_recv(Kcpev *client, const char *buf, size_t len)
     const size_t header_size = sizeof(KcpevHeader);
     int ret = -1;
 
-    check(len >= header_size, "recv data len < %d", header_size);
+    check(len >= header_size, "recv data len < %zu", header_size);
 
     ret = header_from_net(&header, buf, len);
     check(ret == 0, "header_from_net");
 
-    check(header.size == len, "recv data len error, len = %d, real_len = %d", len, header.size);
+    check(header.size == len, "recv data len error, len = %zu, real_len = %u", len, header.size);
 
     const char *data = buf + header_size;
     size_t data_len = len - header_size;
@@ -442,11 +493,11 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t l
     int ret = -1;
 
     const size_t header_size = sizeof(KcpevHeader);
-    check(len >= header_size, "recv data len < %d", header_size);
+    check(len >= header_size, "recv data len < %zu", header_size);
 
     ret = header_from_net(&header, buf, len); 
     check(ret == 0, "header_from_net");
-    check(header.size == len, "recv data len error len = %d, real_len = %d", len, header.size);
+    check(header.size == len, "recv data len error len = %zu, real_len = %u", len, header.size);
 
     const char *data = buf + header_size;
     size_t data_len = len - header_size;
@@ -684,7 +735,7 @@ void kcpev_timer_repeat(Kcpev *kcpev)
         evt->repeat = 0.01;
     else
         evt->repeat = (next - now) / 1000.0;
-    //debug("%u, %u, %lf", now, next, evt->repeat);
+    //debug("%zu, %zu, %lf", now, next, evt->repeat);
     ev_timer_again(EV_A_ evt);
 
 }
@@ -820,31 +871,6 @@ error:
     return;
 }
 
-// try create udp connection
-int connect_client_udp(Kcpev *client, char *port, struct sockaddr *addr, socklen_t addr_size, \
-    struct ev_loop *loop)
-{
-    int ret = kcpev_bind_udp(&client->udp, port, addr->sa_family, 1);
-    check(ret >= 0, "server udp bind");
-
-    ret = connect(client->udp.sock, addr, addr_size);
-    check(ret >= 0, "connect client udp");
-
-    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, 2);
-    check(ret >= 0, "client udp create kcp");
-
-    ret = kcpev_init_ev(client, loop, client, NULL, server_udp_recv);
-    check(ret >= 0, "client init ev");
-
-    ret = check_create_kcp_timer(client);
-    check(ret >= 0, "check_create_kcp_timer");
-    return 0;
-
-error:
-    KcpevUdp_destroy(loop, &client->udp);
-    return -1;
-}
-
 // 接受新的客户端，并发送key
 void tcp_accept(EV_P_ struct ev_io *w, int revents)
 {
@@ -936,30 +962,6 @@ error:
     return -1;
 }
 
-int kcpev_init_ev(Kcpev *kcpev, struct ev_loop *loop, void *data, ev_io_callback tcp_cb, ev_io_callback udp_cb)
-{
-    check(kcpev, "kcpev is NULL");
-
-    kcpev->loop = loop;
-	int ret = -1;
-
-	if(tcp_cb)
-	{
-		ret = kcpev_set_ev(loop, data, (KcpevSock *)&kcpev->tcp, tcp_cb);
-		check(ret >= 0, "set tcp ev");
-	}
-
-    if(udp_cb)
-    {
-        ret = kcpev_set_ev(loop, data, (KcpevSock *)&kcpev->udp, udp_cb);
-        check_log(ret >= 0, "set udp ev");
-    }
-
-    return 0;
-error:
-    return -1;
-}
-
 Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family)
 {
     Kcpev *kcpev = kcpev_create();
@@ -1037,7 +1039,7 @@ size_t pack_send_buf(char *buf, uint32_t buf_size, uint8_t command, const char *
     const uint32_t header_size = sizeof(KcpevHeader);
     const uint32_t real_size = len + header_size;
 
-    check(buf_size >= real_size && len >= 0, "buf exceed max size, buf size: %d, max size: %d", \
+    check(buf_size >= real_size, "buf exceed max size, buf size: %zu, max size: %d", \
         len, buf_size - header_size);
 
     header.size = real_size;

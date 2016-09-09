@@ -10,7 +10,7 @@
 // 基于kcpev的服务端
 //
 
-void recv_cb(KcpevServer *server, Kcpev* client, const char* buf, int len)
+void recv_cb(KcpevServer *server, Kcpev* client, const char* buf, size_t len)
 {
     kcpev_send(client, buf, len);
 }

@@ -33,6 +33,5 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 ###Build:
 * Linux: apt-get install libev-dev uuid-dev / Mac: brew install libev
 * git submodule init && git submodule update 来下载第三方库
-* ./build_third_party.sh
-* make
+* travis.sh
 

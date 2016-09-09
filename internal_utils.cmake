@@ -3,7 +3,7 @@ macro(config_compiler_and_linker)
   # Defines CMAKE_USE_PTHREADS_INIT and CMAKE_THREAD_LIBS_INIT.
   find_package(Threads)
 
-  if (CMAKE_COMPILER_IS_GNUCXX)
+  if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" OR ${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
     set(base_flags "-fpic -pthread -O2 -g -fno-strict-aliasing -fwrapv -Wall -Wextra")
     set(base_flags "${base_flags} -Wno-unused-parameter -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function")
     set(cxx_flags "-std=c++11 ${base_flags}")

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.6.2)
 project(kcpev CXX C)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include(internal_utils.cmake)
 config_compiler_and_linker()
@@ -24,6 +25,7 @@ add_library(kcpev_static STATIC ${KCPEV_SOURCES})
 target_link_libraries(kcpev_static ev uuid)
 
 add_library(kcpev SHARED ${KCPEV_SOURCES})
+target_link_libraries(kcpev_static ev uuid)
 
 # build tests
 include_directories( ${TEST_DIR} )

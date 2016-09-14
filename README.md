@@ -33,11 +33,14 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 ==========
 ###Build:
 * Linux
-    - apt-get install libev-dev uuid-dev / Mac: brew install libev
-    - git submodule update --init --recursive
-    - travis.sh
+    - apt-get install libev-dev uuid-dev
+    - ./travis.sh
 
 * Windows
     - install cmake
-    - open powershell
+    - powershell
     - ./build.ps1
+
+* Mac
+    - brew install libev
+    - ./travis.sh

@@ -77,7 +77,7 @@ int make_sock(const char* addr)
 		ret = connect(client_sock, p->ai_addr, p->ai_addrlen);
 		if (ret != 0)
 		{
-			printf("connect ERROR %d\n", WSAGetLastError());
+			printf("connect ERROR\n");
 			continue;
 		}
 		break;

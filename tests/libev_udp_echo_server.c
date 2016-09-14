@@ -104,7 +104,7 @@ void accept_client(EV_P_ struct ev_io *w, int revents)
 	socklen_t addr_size = sizeof(client_addr);
 	char buf[ECHO_LEN];
 	int ret = recvfrom(KCPEV_FD_TO_HANDLE(w->fd), buf, ECHO_LEN - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
-	check(ret > 0, "recvfrom error %d", WSAGetLastError());
+	check(ret > 0, "recvfrom error");
 	buf[ret] = '\0';
 
 	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];

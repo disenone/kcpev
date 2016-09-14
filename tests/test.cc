@@ -1,4 +1,3 @@
-#include "test.h"
 #include <fcntl.h>
 #include <time.h>
 #include <stdlib.h>
@@ -8,9 +7,12 @@
 #   include <conio.h>
 #else
 #   include <sys/time.h>
+#   include <unistd.h>
 #endif
 #include <ev.h>
 #include <kcpev.h>
+#include "test.h"
+#include "dbg.h"
 
 void itimeofday(long *sec, long *usec)
 {
@@ -152,7 +154,7 @@ static void stdin_read(EV_P_ struct ev_watcher *w, int revents)
 
 	char buf[KCPEV_BUFFER_SIZE];
 	char *buf_in;
-	buf_in = fgets(buf, ECHO_LEN-1, stdin);
+	buf_in = fgets(buf, sizeof(buf), stdin);
 	check(buf_in != NULL, "get stdin");
 	
     if(stdin_cb)
@@ -176,9 +178,9 @@ ev_watcher* setup_stdin(EV_P_ void *data, stdin_callback cb)
 	ev_timer_start(EV_A_ evt);
     return (ev_watcher *)evt;
 #else
-	ev_io *ev_stdin = (ev_io *)cealloc(1, sizeof(ev_io));
+	ev_io *ev_stdin = (ev_io *)calloc(1, sizeof(ev_io));
 	ev_io_init(ev_stdin, (ev_io_callback)stdin_read, STDIN_FILENO, EV_READ);
-	ev_io_start(ev_A_ ev_stdin);
+	ev_io_start(EV_A_ ev_stdin);
     return (ev_watcher *)ev_stdin;
 #endif // _WIN32
 }

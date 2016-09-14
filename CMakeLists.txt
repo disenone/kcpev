@@ -67,7 +67,7 @@ foreach(testfile ${KCPEV_TEST_SOURCES})
     if(MSVC)
         target_link_libraries(${testname} kcpev_static libev_static gtest ws2_32) 
     else()
-        target_link_libraries(${testname} kcpev_static libev_static gtest) 
+        target_link_libraries(${testname} kcpev_static ev gtest) 
     endif()
 endforeach(testfile)
 

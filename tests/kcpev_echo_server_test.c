@@ -40,8 +40,6 @@ int main()
 
     debug("wait for clients...");
 
-	printf("%d, %d\n", kcpev->tcp.sock, kcpev->udp.sock);
-
     ev_run(loop, 0);
 	return 0;
 error:

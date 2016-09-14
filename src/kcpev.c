@@ -713,6 +713,9 @@ void kcpev_timer_repeat(Kcpev *kcpev)
     ev_timer *evt = kcpev->udp.evt;
     ikcpcb *kcp = kcpev->udp.kcp;
 
+    if(!kcp)
+        return;
+
     uint64_t now64 = ev_now(EV_A) * 1000;
     uint32_t now = now64 & 0xfffffffful;
 
@@ -812,7 +815,6 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     int ret = -1;
 
     int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
-    kcpev_timer_repeat(client);
     check(len > 0, "client tcp closed");
  
     char uuids[UUID_PARSE_SIZE];
@@ -956,8 +958,9 @@ error:
     return -1;
 }
 
-static int kcpev_startup()
+static inline int kcpev_startup()
 {
+#ifdef _WIN32
     static int is_init = 0;
 
     if(is_init)
@@ -971,6 +974,9 @@ static int kcpev_startup()
 
 error:
     return -1;
+#else
+    return 1;
+#endif
 }
 
 Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family)

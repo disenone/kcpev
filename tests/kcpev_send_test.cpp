@@ -8,6 +8,7 @@
 #   include <netdb.h>
 #   include <sys/types.h>
 #   include <sys/socket.h>
+#   include <unistd.h>
 #endif
 #include <dbg.h>
 #include <string>
@@ -32,7 +33,7 @@ void on_stdin_read(EV_P_ struct ev_watcher *w, int revents, const char *buf, siz
     static int odd = 0;
     int ret = -1;
 	//odd = (odd + 1) % 2;
-    Kcpev *kcpev = w->data;
+    Kcpev *kcpev = (Kcpev *)w->data;
 	if(odd)
 	    ret = kcpev_send(kcpev, buf, strlen(buf));
 	else

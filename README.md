@@ -1,6 +1,7 @@
 # kcpev
 [![Build Status](https://travis-ci.org/disenone/kcpev.svg?branch=master)
 ](https://travis-ci.org/disenone/kcpev)
+[![Build status](https://ci.appveyor.com/api/projects/status/gv4uqlvaoh46ect0?svg=true)](https://ci.appveyor.com/project/disenone/kcpev)
 
 设计：
 TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://github.com/skywind3000/kcp/wiki/Cooperate-With-Tcp-Server)

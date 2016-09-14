@@ -146,6 +146,7 @@ int main()
 	ev_io_start(loop, &ev_server);
 
 	printf("wairting for clients...\n");
-	return ev_run(loop, 0);
+	ev_run(loop, 0);
+    return 0;
 }
 

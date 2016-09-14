@@ -145,6 +145,7 @@ int main(int argc, char* argv[])
 
 	ev_io_init(&ev_client, echo_read, KCPEV_HANDLE_TO_FD(client_sock), EV_READ);
 	ev_io_start(loop, &ev_client);
-	return ev_run(loop, 0);
+	ev_run(loop, 0);
+    return 0;
 }
 

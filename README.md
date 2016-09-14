@@ -7,6 +7,7 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 
 ==========
 ###Feature:
+* Linux 和 Windows 下都能编译运行，但 Windows 下只支持客户端的允许，服务端 udp 不能正确接收数据
 * tcp 和 udp 收发，默认使用 udp；udp 不可用时切换为 tcp，也可以强行使用 tcp
 * tcp 包使用 ringbuf 来重组，保证完整
 * udp 使用 kcp 来保证收发可靠
@@ -31,7 +32,12 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 
 ==========
 ###Build:
-* Linux: apt-get install libev-dev uuid-dev / Mac: brew install libev
-* git submodule init && git submodule update 来下载第三方库
-* travis.sh
+* Linux
+    - apt-get install libev-dev uuid-dev / Mac: brew install libev
+    - git submodule update --init --recursive
+    - travis.sh
 
+* Windows
+    - install cmake
+    - open powershell
+    - ./build.ps1

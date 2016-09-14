@@ -1,9 +1,15 @@
 #include <kcpev.h>
 #include <iostream>
-#include <sys/socket.h>
-#include <sys/types.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <dbg.h>
-#include <unistd.h>
 #include <string>
 #include <fcntl.h>
 #include "test.h"
@@ -21,30 +27,20 @@ void client_recv_cb(Kcpev* kcpev, const char* buf, size_t len)
     delete data;
 }
 
-void stdin_read(EV_P_ struct ev_io *w, int revents)
+void on_stdin_read(EV_P_ struct ev_watcher *w, int revents, const char *buf, size_t len)
 {
     static int odd = 0;
-	char buf[KCPEV_BUFFER_SIZE];
-	char *buf_in;
     int ret = -1;
-    Kcpev *kcpev = NULL;
-
-	buf_in = fgets(buf, sizeof(buf), stdin);
-	check(buf_in != NULL, "get stdin");
-
-    kcpev = (Kcpev *)w->data;
 	//odd = (odd + 1) % 2;
+    Kcpev *kcpev = w->data;
 	if(odd)
 	    ret = kcpev_send(kcpev, buf, strlen(buf));
 	else
 		ret = kcpev_send_tcp(kcpev, buf, strlen(buf));
 
 	check(ret >= 0, "");
-
-	printf(">> ");
-	fflush(stdout);
 error:
-	return;
+    return;
 }
 
 Kcpev* create_client()
@@ -103,10 +99,7 @@ int main(int argc, char* argv[])
 
     Kcpev *kcpev = create_client();
 
-	ev_io ev_stdin;
-	ev_stdin.data = kcpev;
-	ev_io_init(&ev_stdin, stdin_read, STDIN_FILENO, EV_READ);
-	ev_io_start(kcpev->loop, &ev_stdin);
+    setup_stdin(kcpev->loop, kcpev, on_stdin_read);
 
     ev_run(kcpev->loop, 0);
     return 0;

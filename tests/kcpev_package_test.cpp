@@ -1,10 +1,16 @@
 #include <kcpev.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <dbg.h>
 #include <gtest/gtest.h>
-#include <unistd.h>
 #include <string>
 #include <fcntl.h>
 #include <unordered_map>

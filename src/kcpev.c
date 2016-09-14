@@ -1,9 +1,14 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <ev.h>
 #include "dbg.h"
 #include "ikcp.h"
@@ -51,7 +56,11 @@ void KcpevSock_destroy(struct ev_loop *loop, KcpevSock *evs)
 {
     if(evs->sock)
     {
+#ifdef _WIN32
+		closesocket(evs->sock);
+#else
         close(evs->sock);
+#endif
         evs->sock = 0;
     }
 
@@ -126,21 +135,6 @@ void kcpev_server_destroy(KcpevServer *kcpev)
     KcpevUdp_destroy(kcpev->loop, &kcpev->udp);
     delete_hash(kcpev);
     kcpev_free(kcpev);
-}
-
-static int setnonblocking(int fd) 
-{
-    int flag = fcntl(fd, F_GETFL, 0);
-    if(flag < 0) 
-    {
-        return -1;
-    }
-    if(fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0) 
-    {
-        return -1;
-    }
-
-    return 0;
 }
 
 // create ipv4 or ipv6 socket
@@ -384,7 +378,7 @@ error:
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
 {
     KcpevUdp *client = user;
-    ssize_t ret = send(client->sock, buf, len, 0);
+    int ret = send(client->sock, buf, len, 0);
     check(ret == len, "send");
 
 error:
@@ -647,11 +641,11 @@ void client_tcp_recv(EV_P_ struct ev_io *w, int revents)
 {
     char buf[KCPEV_BUFFER_SIZE];
     uint8_t command;
-    ssize_t ret = -1;
+    int ret = -1;
     
     Kcpev *client = w->data;
 
-    ssize_t len = recv(w->fd, buf, sizeof(buf), 0);
+    int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     check(len > 0, "");
 
     len = on_tcp_recv(client, buf, len);
@@ -774,7 +768,7 @@ error:
 void client_udp_recv(EV_P_ struct ev_io *w, int revents)
 {
     char buf[KCPEV_BUFFER_SIZE];
-    ssize_t len = recv(w->fd, buf, sizeof(buf), 0);
+    int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     check(len > 0, "");
     Kcpev *client = w->data;
 
@@ -817,7 +811,7 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     Kcpev *client = w->data;
     int ret = -1;
 
-    ssize_t len = recv(w->fd, buf, sizeof(buf), 0);
+    int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     kcpev_timer_repeat(client);
     check(len > 0, "client tcp closed");
  
@@ -854,7 +848,7 @@ void server_udp_recv(EV_P_ struct ev_io *w, int revents)
     char buf[KCPEV_BUFFER_SIZE];
     Kcpev *client = w->data;
 
-    ssize_t len = recv(w->fd, buf, sizeof(buf), 0);
+    int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     check(len > 0, "");
 
     char uuids[UUID_PARSE_SIZE];
@@ -878,7 +872,7 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
 
     struct sockaddr_storage client_addr;
     socklen_t addr_size = sizeof(client_addr);
-    int client_sock = accept(w->fd, (struct sockaddr *)&client_addr, &addr_size);
+    int client_sock = accept(KCPEV_FD_TO_HANDLE(w->fd), (struct sockaddr *)&client_addr, &addr_size);
     check(client_sock > 0, "accept");
 
     char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
@@ -928,7 +922,7 @@ void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
     char buf[KCPEV_BUFFER_SIZE];
     int ret = -1;
 
-    ssize_t len = recvfrom(w->fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
+    int len = recvfrom(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addr_size);
     check(len > 0, "server recvfrom");
 
     KcpevServer *server = w->data;
@@ -936,7 +930,7 @@ void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
     ret = on_server_recv(server, NULL, buf, len, (struct sockaddr *)&client_addr, addr_size);
     check(ret == 0, "");
 
-    //debug("udp_all recv client: [%d]\n", len);
+    debug("udp_all recv client: [%d]\n", len);
 
 error:
     return;
@@ -953,7 +947,7 @@ int kcpev_set_ev(struct ev_loop *loop, void *data, KcpevSock *evs, ev_io_callbac
     evs->evio = ev_one;
 
     ev_one->data = data;
-    ev_io_init(ev_one, cb, evs->sock, EV_READ);
+    ev_io_init(ev_one, cb, KCPEV_HANDLE_TO_FD(evs->sock), EV_READ);
     ev_io_start(loop, ev_one);
 
     return 0;
@@ -962,12 +956,34 @@ error:
     return -1;
 }
 
+static int kcpev_startup()
+{
+    static int is_init = 0;
+
+    if(is_init)
+        return 1;
+
+    WSADATA wsa_data;
+    int ret = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    check(ret == 0, "WSAStartup");
+    is_init = 1;
+    return 1;
+
+error:
+    return -1;
+}
+
 Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family)
 {
+    int ret;
+
+    ret = kcpev_startup();
+    check(ret == 1, "");
+
     Kcpev *kcpev = kcpev_create();
     check(kcpev, "kcpev_create");
     
-    int ret = kcpev_bind(kcpev, port, family, 0);
+    ret = kcpev_bind(kcpev, port, family, 0);
     check(ret >= 0, "kcpev_bind");
 
     ret = kcpev_create_kcp(&kcpev->udp, kcpev->key.split_key.conv, 2);
@@ -989,13 +1005,18 @@ error:
 
 KcpevServer *kcpev_create_server(struct ev_loop *loop, const char *port, int family, int backlog)
 {
+    int ret;
+
+    ret = kcpev_startup();
+    check(ret == 1, "");
+
     KcpevServer *kcpev = kcpev_server_create();
     check(kcpev, "kcpev_create");
 
     strncpy(kcpev->port, port, sizeof(kcpev->port));
 
     int reuse = 1;
-    int ret = kcpev_bind((Kcpev *)kcpev, port, family, reuse);
+    ret = kcpev_bind((Kcpev *)kcpev, port, family, reuse);
     check(ret >= 0, "kcpev_server_bind");
 
     ret = kcpev_init_ev((Kcpev *)kcpev, loop, kcpev, tcp_accept, server_udp_recv_all);
@@ -1127,4 +1148,5 @@ int header_from_net(KcpevHeader *header, const char *buf, size_t len)
     header->command = *(HEADER_COMMAND_TYPE *)(buf + sizeof(HEADER_SIZE_TYPE));
     return 0;
 }
+
 

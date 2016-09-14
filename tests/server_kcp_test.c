@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <fcntl.h>
 #include <ev.h>
 #include "dbg.h"

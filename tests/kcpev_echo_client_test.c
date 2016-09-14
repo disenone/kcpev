@@ -1,8 +1,14 @@
 #include <kcpev.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include "dbg.h"
 
 #define BACKLOG 128
@@ -11,29 +17,20 @@
 // 基于kcpev的客户端
 //
 
-void stdin_read(EV_P_ struct ev_io *w, int revents)
+void on_stdin_read(EV_P_ struct ev_watcher *w, int revents, const char *buf, size_t len)
 {
     static int odd = 0;
-
-	char buf[KCPEV_BUFFER_SIZE];
-	char *buf_in;
-    Kcpev *kcpev = NULL;
     int ret = -1;
-
-	buf_in = fgets(buf, sizeof(buf) - 1, stdin);
-	check(buf_in != NULL, "get stdin");
-
-    kcpev = (Kcpev *)w->data;
 	//odd = (odd + 1) % 2;
+    Kcpev *kcpev = w->data;
 	if(odd)
 	    ret = kcpev_send(kcpev, buf, strlen(buf));
 	else
 		ret = kcpev_send_tcp(kcpev, buf, strlen(buf));
 
-	printf(">> ");
-	fflush(stdout);
+	check(ret >= 0, "");
 error:
-	return;
+    return;
 }
 
 void recv_cb(void *kcpev, const char *buf, int len)
@@ -67,10 +64,7 @@ int main(int argc, char* argv[])
 
     kcpev_set_cb(kcpev, recv_cb, NULL);
 
-	ev_io ev_stdin;
-	ev_stdin.data = kcpev;
-	ev_io_init(&ev_stdin, stdin_read, STDIN_FILENO, EV_READ);
-	ev_io_start(loop, &ev_stdin);
+    setup_stdin(loop, kcpev, on_stdin_read);
 
 	printf(">> ");
 	fflush(stdout);

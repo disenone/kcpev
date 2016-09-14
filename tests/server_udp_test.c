@@ -1,18 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <fcntl.h>
 #include "dbg.h"
 
 // echo_server based on libev and udp
 //
-#define PORT "12321"	// 连接端口
+#define PORT "33333"	// 连接端口
 #define ECHO_LEN	1025
 #define NI_MAXHOST  1025
 #define NI_MAXSERV	32
@@ -22,11 +25,11 @@ int make_sock()
 	struct addrinfo hints, *server_addr;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;		// ipv4 or ipv6
+	hints.ai_family = AF_INET;		// ipv4 or ipv6
 	hints.ai_socktype = SOCK_DGRAM;	
 	hints.ai_flags = AI_PASSIVE;
 
-	int ret = getaddrinfo(NULL, PORT, &hints, &server_addr);
+	int ret = getaddrinfo("127.0.0.1", PORT, &hints, &server_addr);
 	check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
 
 	int server_sock;
@@ -70,13 +73,18 @@ error:
 
 int main()
 {
+	int ret;
+#ifdef _WIN32
+    WSADATA wsa_data;
+    ret = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+#endif
+
 	int server_sock = make_sock();
 
 	struct sockaddr_storage client_addr;
 	socklen_t addr_size = sizeof(client_addr);
 	char buf[ECHO_LEN];
 	char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-	int ret;
 	for(;;)
 	{
 error:

@@ -21,6 +21,14 @@
 #define COMMAND_SHAKE_HAND  1   // Œ’ ÷
 #define COMMAND_HEARTBEAT   2   // –ƒÃ¯
 
+#ifdef _WIN32
+#define KCPEV_HANDLE_TO_FD(handle)    (_open_osfhandle (handle, 0))
+#define KCPEV_FD_TO_HANDLE(fd)      (_get_osfhandle(fd))
+#else
+#define KCPEV_HANDLE_TO_FD(handle)    handle
+#define KCPEV_FD_TO_HANDLE(fd)      fd
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

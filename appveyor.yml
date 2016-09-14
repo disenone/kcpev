@@ -1,0 +1,42 @@
+version: '{build}'
+
+os: Visual Studio 2015
+
+environment:
+  matrix:
+  - Toolset: v140
+  - Toolset: v120
+  - Toolset: v110
+  - Toolset: v100
+
+platform:
+  - Win32
+  - x64
+
+configuration:
+  - Release
+  - Debug
+
+build:
+  verbosity: detailed
+
+before_build:
+- ps: |
+    Write-Output "Configuration: $env:CONFIGURATION"
+    Write-Output "Platform: $env:PLATFORM"
+    $generator = switch ($env:TOOLSET)
+    {
+        "v140" {"Visual Studio 14 2015"}
+        "v120" {"Visual Studio 12 2013"}
+        "v110" {"Visual Studio 11 2012"}
+        "v100" {"Visual Studio 10 2010"}
+    }
+    if ($env:PLATFORM -eq "x64")
+    {
+        $generator = "$generator Win64"
+    }
+
+build_script:
+- ps: |
+    ./build.ps1 $generator $env:CONFIGURATION
+

@@ -116,7 +116,7 @@ int ringbuf_copy_data(ringbuf *r, void *data, size_t len)
     }
     else {
         memcpy(data, &r->d[r->o], b);
-        memcpy(data + b, r->d, len - b); 
+        memcpy((char *)data + b, r->d, len - b); 
     }
 
     return 0;

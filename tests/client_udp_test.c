@@ -1,27 +1,30 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#ifdef _WIN32
+#   include <winsock2.h>
+#   include <WS2tcpip.h>
+#   include <stdint.h>
+#else
+#   include <netdb.h>
+#   include <sys/types.h>
+#   include <sys/socket.h>
+#endif
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <fcntl.h>
 #include "dbg.h"
 
 // echo_client based on libev and udp
 //
-#define PORT 12322	// 连接端口开始数值，递增查找可用端口
+#define PORT 33334	// 连接端口开始数值，递增查找可用端口
 #define ECHO_LEN 1025
-#define SERVER_PORT "12321"
+#define SERVER_PORT "33333"
 
 int make_sock(const char* addr)
 {
 	struct addrinfo hints, *client_addr, *server_addr;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;		// ipv4 or ipv6
+	hints.ai_family = AF_INET;		// ipv4 or ipv6
 	hints.ai_socktype = SOCK_DGRAM;	
 	hints.ai_flags = AI_PASSIVE;
 
@@ -64,7 +67,7 @@ int make_sock(const char* addr)
 	}
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;		// ipv4 or ipv6
+	hints.ai_family = AF_INET;		// ipv4 or ipv6
 	hints.ai_socktype = SOCK_DGRAM;	
 	int ret = getaddrinfo(addr, SERVER_PORT, &hints, &server_addr);
 	check(ret == 0, "getaddrinfo ERROR: %s", gai_strerror(ret));
@@ -74,7 +77,7 @@ int make_sock(const char* addr)
 		ret = connect(client_sock, p->ai_addr, p->ai_addrlen);
 		if (ret != 0)
 		{
-			perror("connect ERROR");
+			printf("connect ERROR %d\n", WSAGetLastError());
 			continue;
 		}
 		break;
@@ -92,6 +95,11 @@ error:
 
 int main()
 {
+#ifdef _WIN32
+    WSADATA wsa_data;
+    int ret = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+#endif
+
 	int client_sock = make_sock("127.0.0.1");
 
 	char buf[ECHO_LEN];

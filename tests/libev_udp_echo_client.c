@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #ifdef _WIN32
 #   include <winsock2.h>
 #   include <WS2tcpip.h>
@@ -9,14 +8,12 @@
 #   include <netdb.h>
 #   include <sys/types.h>
 #   include <sys/socket.h>
-#   include <arpa/inet.h>
 #endif
+#include <string.h>
 #include <fcntl.h>
 #include <ev.h>
 #include <kcpev.h>
 #include "dbg.h"
-#include "ikcp.h"
-#include "test.h"
 
 // echo_client based on libev and udp
 //
@@ -92,29 +89,10 @@ int make_sock(const char* addr)
 
 	freeaddrinfo(server_addr);
 
-	ret = setnonblocking(client_sock);
-	check(ret == 0, "setnonblocking");
-
 	return client_sock;
 
 error:
 	exit(EXIT_FAILURE);
-}
-
-void try_recv(ikcpcb *kcp)
-{
-	char buf[ECHO_LEN];
-	int ret = ikcp_recv(kcp, buf, ECHO_LEN - 1);
-	if (ret > 0)
-	{
-		buf[ret] = '\0';
-		printf("\nrecv from server: %s\n", buf);
-		printf(">> ");
-		fflush(stdout);
-	}
-
-	return;
-
 }
 
 void echo_read(EV_P_ struct ev_io *w, int revents)
@@ -123,46 +101,24 @@ void echo_read(EV_P_ struct ev_io *w, int revents)
 	int ret = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, ECHO_LEN-1, 0);
 	check(ret > 0, "recv");
 
-	ikcpcb *kcp = w->data;
-	ikcp_input(kcp, buf, ret);
+	buf[ret] = '\0';
 
-	try_recv(kcp);
+	printf("\nrecv from server: %s\n", buf);
+
+	printf(">> ");
+	fflush(stdout);
 error:
 	return;
 }
 
+ev_io ev_client;
+
 void on_stdin_read(EV_P_ struct ev_watcher *w, int revents, const char *buf, size_t len)
 {
-	ikcpcb *kcp = w->data;
-	ikcp_send(kcp, buf, len);
+    int ret = send(w->data, buf, len, 0);
+	check(ret > 0, "send");
+error:
     return;
-}
-
-void on_timer(struct ev_loop *loop, ev_timer *w, int revents)
-{
-	uint64_t now64 = ev_now(EV_A) * 1000;
-	uint32_t now = now64 & 0xfffffffful;
-
-	ikcpcb *kcp = w->data;
-
-	ikcp_update(kcp, now);
-
-	try_recv(kcp);
-}
-
-int udp_output(const char *buf, int len, ikcpcb *kcp, void *user)
-{
-	send((intptr_t)user, buf, len, 0);
-	return 0;
-}
-
-ikcpcb* create_kcp(int sock)
-{
-	ikcpcb *kcp = ikcp_create(0x11223344, (void*)sock);
-	ikcp_wndsize(kcp, 128, 128);
-	ikcp_nodelay(kcp, 0, 10, 0, 0);
-	kcp->output = udp_output;
-	return kcp;
 }
 
 int main(int argc, char* argv[])
@@ -181,23 +137,14 @@ int main(int argc, char* argv[])
 	struct ev_loop *loop = EV_DEFAULT;
 
 	int client_sock = make_sock(argv[1]);
-	ikcpcb *kcp = create_kcp(client_sock);
-
-    setup_stdin(loop, kcp, on_stdin_read);
-
-	ev_io ev_client;
-	ev_client.data = kcp;
-	ev_io_init(&ev_client, echo_read, KCPEV_HANDLE_TO_FD(client_sock), EV_READ);
-	ev_io_start(loop, &ev_client);
-
-	ev_timer ev_timer;
-	ev_timer.data = kcp;
-	ev_timer_init(&ev_timer, on_timer, 0.001, 0.001);
-	ev_timer_start(loop, &ev_timer);
 
 	printf(">> ");
 	fflush(stdout);
-	ev_run(EV_A_ 0);
-	return 0;
+
+    setup_stdin(loop, client_sock, on_stdin_read);
+
+	ev_io_init(&ev_client, echo_read, KCPEV_HANDLE_TO_FD(client_sock), EV_READ);
+	ev_io_start(loop, &ev_client);
+	return ev_run(loop, 0);
 }
 

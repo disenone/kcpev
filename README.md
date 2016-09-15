@@ -40,6 +40,7 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 * Windows
     - install cmake
     - powershell
+    - Set-ExecutionPolicy RemoteSigned
     - ./build.ps1
 
 * Mac

@@ -132,7 +132,7 @@ int main()
 
 		if (i % 1000 == 0)
 		{
-			snprintf(buf, ECHO_LEN-1, "%s:%d, %u", msg, i, current);
+			sprintf(buf, "%s:%d, %u", msg, i, current);
 			ret = ikcp_send(kcp, buf, strlen(buf));
 			check(ret >= 0, "send");
 			printf("send [%s]\n", buf);

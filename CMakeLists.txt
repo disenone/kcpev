@@ -53,7 +53,7 @@ if(MSVC)
     list(REMOVE_ITEM KCPEV_TEST_SOURCES 
         "${PROJECT_SOURCE_DIR}/tests/kcpev_send_test.cpp"
         "${PROJECT_SOURCE_DIR}/tests/kcpev_package_test.cpp")
-    message("${PROJECT_SOURCE_DIR_SLASH}")
+    STRING(REGEX REPLACE "/" "\\\\" PROJECT_SOURCE_DIR_SLASH ${PROJECT_SOURCE_DIR}) 
     add_custom_command(TARGET kcpev POST_BUILD
         COMMAND xcopy /C /Y "${PROJECT_SOURCE_DIR_SLASH}\\third_party\\googletest\\build\\googlemock\\gtest\\$(ConfigurationName)\\gtest.dll"  "${PROJECT_SOURCE_DIR_SLASH}\\build\\$(ConfigurationName)"
     )

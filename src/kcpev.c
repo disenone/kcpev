@@ -777,9 +777,10 @@ void client_udp_recv(EV_P_ struct ev_io *w, int revents)
 
     //debug("client recv udp raw: [%d]", len);
 
-    if(!client->udp.kcp->conv)
+    if(!client->udp.status)
     {
         client->udp.kcp->conv = client->key.split_key.conv;
+        client->udp.status = 1;
         int ret = check_create_kcp_timer(client);
         check(ret >= 0, "check_create_kcp_timer");
 
@@ -1050,7 +1051,7 @@ int is_kcp_valid(Kcpev *kcpev)
     if(!kcpev->udp.kcp)
         return 0;
 
-    if(!kcpev->udp.kcp->conv)
+    if(!kcpev->udp.status)
         return 0;
 
     if(!kcpev->udp.evt)

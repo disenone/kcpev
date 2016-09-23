@@ -70,6 +70,7 @@ typedef struct
     KCPEV_SOCK;
     ev_timer *evt;
     ikcpcb *kcp;
+    uint8_t status;     // 0: invalid, 1: ready
 } KcpevUdp;
 
 struct _Kcpev;

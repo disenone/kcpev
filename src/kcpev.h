@@ -8,30 +8,43 @@
 #include "ikcp.h"
 #include "utils.h"
 
-#define INPORT_ANY "0"
-#define KCPEV_BUFFER_SIZE 65536
-#define NI_MAXHOST 1025
-#define NI_MAXSERV 32
-#define UUID_PARSE_SIZE 37
+#define INPORT_ANY          "0"
+#define KCPEV_BUFFER_SIZE   65536
+#define NI_MAXHOST          1025
+#define NI_MAXSERV          32
+#define UUID_PARSE_SIZE     37
 
 #define HEADER_SIZE_TYPE    uint32_t
 #define HEADER_COMMAND_TYPE uint8_t
 
-#define COMMAND_DATA        0   // 普通数据
-#define COMMAND_SHAKE_HAND  1   // 握手
-#define COMMAND_HEARTBEAT   2   // 心跳
+#define KCP_MODE            2
 
 #ifdef _WIN32
 #define KCPEV_HANDLE_TO_FD(handle)    (_open_osfhandle (handle, 0))
 #define KCPEV_FD_TO_HANDLE(fd)      (_get_osfhandle(fd))
 #else
-#define KCPEV_HANDLE_TO_FD(handle)    handle
+#define KCPEV_HANDLE_TO_FD(handle)  handle
 #define KCPEV_FD_TO_HANDLE(fd)      fd
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+enum Command
+{
+    COMMAND_DATA = 1,           // 普通数据
+    COMMAND_SHAKE_HAND1,        // 握手第一次
+    COMMAND_SHAKE_HAND2,        // 握手第二次
+    COMMAND_HEARTBEAT,          // 心跳
+};
+
+enum UdpStatus
+{
+    UDP_INVALID = 0,            // udp不可用
+    UDP_SHAKING_HAND,           // udp握手中
+    UDP_READY,                  // udp可用
+};
 
 typedef struct
 {
@@ -70,7 +83,7 @@ typedef struct
     KCPEV_SOCK;
     ev_timer *evt;
     ikcpcb *kcp;
-    uint8_t status;     // 0: invalid, 1: ready
+    uint8_t status;     // 0: invalid, 1: shaking hand, 2: ready
 } KcpevUdp;
 
 struct _Kcpev;

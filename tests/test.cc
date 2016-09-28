@@ -179,6 +179,7 @@ ev_watcher* setup_stdin(EV_P_ void *data, stdin_callback cb)
     return (ev_watcher *)evt;
 #else
 	ev_io *ev_stdin = (ev_io *)calloc(1, sizeof(ev_io));
+    ev_stdin->data = data;
 	ev_io_init(ev_stdin, (ev_io_callback)stdin_read, STDIN_FILENO, EV_READ);
 	ev_io_start(EV_A_ ev_stdin);
     return (ev_watcher *)ev_stdin;

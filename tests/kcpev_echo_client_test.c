@@ -19,7 +19,7 @@
 
 void on_stdin_read(EV_P_ struct ev_watcher *w, int revents, const char *buf, size_t len)
 {
-    static int odd = 0;
+    static int odd = 1;
     int ret = -1;
 	//odd = (odd + 1) % 2;
     Kcpev *kcpev = w->data;

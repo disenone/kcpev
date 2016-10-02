@@ -13,8 +13,18 @@
 #include "dbg.h"
 #include "ikcp.h"
 #include "kcpev.h"
+#include "portable_endian.h"
 
 void server_udp_recv(EV_P_ struct ev_io *w, int revents);
+int kcp_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t len);
+int check_create_kcp_timer(Kcpev *kcpev, timer_cb hcb);
+int kcpev_set_ev(struct ev_loop *loop, void *data, KcpevSock *evs, ev_io_callback cb);
+int kcpev_create_kcp(KcpevUdp *udp, int conv, int kcp_mode);
+int is_kcp_valid(Kcpev *kcpev);
+void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents);
+void set_kcp_invalid(Kcpev *kcpev);
+void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents);
+void on_server_heartbeat_timer(EV_P_ ev_timer *w, int revents);
 
 static void* (*kcpev_malloc_hook)(size_t) = NULL;
 static void (*kcpev_free_hook)(void *) = NULL;
@@ -92,6 +102,12 @@ void KcpevUdp_destroy(struct ev_loop *loop, KcpevUdp *evs)
         kcpev_free(evs->evt);
         evs->evt = NULL;
     }
+    if(evs->evh)
+    {
+        ev_timer_stop(loop, evs->evh);
+        kcpev_free(evs->evh);
+        evs->evh = NULL;
+    }
     if(evs->kcp)
     {
         ikcp_release(evs->kcp);
@@ -140,7 +156,7 @@ void kcpev_server_destroy(KcpevServer *kcpev)
 // create ipv4 or ipv6 socket
 // sock_type = SOCK_STREAM or SOCK_DGRAM
 // ifaddress = INADDR_ANY, will auto pick an usable address
-// if port = INPORT_ANY, will auto pick an usable port
+// if port = KCPEV_INPORT_ANY, will auto pick an usable port
 // family = AF_UNSPEC or AF_INET or AF_INET6
 int kcpev_bind_socket(KcpevSock *sock, int sock_type, const char *port, int family, int reuse)
 {
@@ -213,7 +229,7 @@ int kcpev_bind(Kcpev *kcpev, const char *port, int family, int reuse)
 
     struct sockaddr_storage client_addr;
     socklen_t addr_size = sizeof(client_addr);
-    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+    char hbuf[KCPEV_NI_MAXHOST], sbuf[KCPEV_NI_MAXSERV];
     ret = getsockname(kcpev->tcp.sock, (struct sockaddr*)&client_addr, &addr_size);
     check(ret >= 0, "getpeername");
     ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
@@ -360,13 +376,12 @@ int connect_client_udp(Kcpev *client, char *port, const struct sockaddr *addr, s
     ret = connect(client->udp.sock, addr, addr_size);
     check(ret >= 0, "connect client udp");
 
-    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, KCP_MODE);
+    ret = kcpev_create_kcp(&client->udp, client->key.split_key.conv, KCPEV_KCP_MODE);
     check(ret >= 0, "client udp create kcp");
 
     ret = kcpev_init_ev(client, loop, client, NULL, server_udp_recv);
     check(ret >= 0, "client init ev");
 
-    client->udp.status = UDP_SHAKING_HAND;
     return 0;
 
 error:
@@ -421,9 +436,6 @@ error:
 }
 
 // buf = uint32_t(len) + uint8_t(command) + data
-// #define COMMAND_DATA        0   # 普通数据
-// #define COMMAND_SHAKE_HAND  1   # 握手
-// #define COMMAND_HEARTBEAT   2   # 心跳
 int on_client_recv(Kcpev *client, const char *buf, size_t len)
 {
     KcpevHeader header;
@@ -454,7 +466,7 @@ int on_client_recv(Kcpev *client, const char *buf, size_t len)
 
             memcpy(client->key.uuid, data, sizeof(KcpevKey));
 
-            char uuids[UUID_PARSE_SIZE];
+            char uuids[KCPEV_UUID_PARSE_SIZE];
             uuid_unparse(client->key.uuid, uuids);
             debug("set key successfully [%s]!", uuids);
 
@@ -480,7 +492,7 @@ int on_client_recv(Kcpev *client, const char *buf, size_t len)
             ret = sock_send_command(client->udp.sock, COMMAND_SHAKE_HAND2, data, data_len);
             check(ret == 0, "send shake hand2 to server");
 
-            ret = check_create_kcp_timer(client);
+            ret = check_create_kcp_timer(client, on_client_heartbeat_timer);
             check(ret >= 0, "check_create_kcp_timer");
 
             client->udp.kcp->conv = client->key.split_key.conv;
@@ -489,7 +501,23 @@ int on_client_recv(Kcpev *client, const char *buf, size_t len)
             debug("shake hand successfully conv: %d.", client->udp.kcp->conv);
             break;
 
-        case COMMAND_HEARTBEAT:
+        case COMMAND_HEARTBEAT1:
+            if(!is_kcp_valid(client))
+                break;
+
+            check(data_len == sizeof(KcpevKey) + sizeof(uint64_t), "set key data len error");
+
+            check(client->udp.status == UDP_READY, 
+                "recv server shake hand2 msg at invalid status [%d]", client->udp.status);
+
+            check(memcmp(data, &client->key, sizeof(KcpevKey)) == 0,
+                "recv server shake hand2 key not match hand1 key");
+           
+            ret = kcpev_send_command(client, COMMAND_HEARTBEAT2, data, data_len);
+            check(ret == 0, "send shake hand");
+            
+            client->udp.heart = ev_now(client->loop);
+            debug("end heart beat");
             break;
 
         default:
@@ -503,9 +531,6 @@ error:
 }
 
 // buf = uint32_t(len) + uint8_t(command) + data
-// #define COMMAND_DATA        0   # 普通数据
-// #define COMMAND_SHAKE_HAND  1   # 握手
-// #define COMMAND_HEARTBEAT   2   # 心跳
 int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t len, \
     const struct sockaddr *client_addr, int addr_size)
 {
@@ -522,7 +547,7 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t l
     const char *data = buf + header_size;
     size_t data_len = len - header_size;
 
-    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+    char hbuf[KCPEV_NI_MAXHOST], sbuf[KCPEV_NI_MAXSERV];
 
     ret = getnameinfo(client_addr, addr_size, hbuf, sizeof(hbuf), \
         sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
@@ -550,7 +575,8 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t l
             // udp may failed, if so, use tcp then
             ret = connect_client_udp(client, server->port, client_addr, \
                 addr_size, server->loop);
-            check_goto(ret >= 0, "connect_client_udp", shake_error);
+            check(ret >= 0, "connect_client_udp");
+            client->udp.status = UDP_SHAKING_HAND;
 
             ret = sock_send_command(client->udp.sock, COMMAND_SHAKE_HAND2, (char *)&client->key, sizeof(KcpevKey));
 
@@ -571,20 +597,63 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t l
             check(client->udp.status == UDP_SHAKING_HAND, 
                 "recv client shake hand2 msg at invalid status [%d]", client->udp.status);
 
-            ret = check_create_kcp_timer(client);
+            ret = check_create_kcp_timer(client, on_server_heartbeat_timer);
             check(ret >= 0, "check_create_kcp_timer");
 
             client->udp.status = UDP_READY;
 
-            char uuids[UUID_PARSE_SIZE];
+            char uuids[KCPEV_UUID_PARSE_SIZE];
             uuid_unparse(client->key.uuid, uuids);
             debug("successfully shake hand with client [%s]", uuids);
             break;
 
-    shake_error:
+        case COMMAND_HEARTBEAT1:
+            check(client, "client is NULL");
+
+            if(!is_kcp_valid(client))
+                break;
+
+            check(data_len == sizeof(KcpevKey), "udp shake len error [%s : %s]", hbuf, sbuf);
+
+            check(memcmp(data, &client->key, sizeof(KcpevKey)) == 0,
+                "recv client heart beat1 key not match");
+
+            char send_buf[sizeof(KcpevKey) + sizeof(uint64_t)];
+            memcpy(send_buf, (char *)&client->key, sizeof(KcpevKey));
+            *(uint64_t *)(send_buf + sizeof(KcpevKey)) = htobe64(*(uint64_t *)&client->udp.heart);
+
+            int ret = kcp_send_command(client, COMMAND_HEARTBEAT1, send_buf, sizeof(send_buf));
+            check(ret == 0, "");
+
+            debug("begin heart beat [%lu : %lu]", *(uint64_t *)&client->udp.heart, *(uint64_t *)(send_buf + sizeof(KcpevKey)));
+            for(int i=0; i<sizeof(send_buf); ++i)
+            {
+
+            }
             break;
 
-        case COMMAND_HEARTBEAT:
+        case COMMAND_HEARTBEAT2:
+            check(client, "client is NULL");
+
+            if(!is_kcp_valid(client))
+                break;
+
+            check(data_len == sizeof(KcpevKey) + sizeof(uint64_t), "udp shake len error [%s : %s]", hbuf, sbuf);
+            check(memcmp(data, &client->key, sizeof(KcpevKey)) == 0,
+                "recv client heart beat1 key not match");
+
+            uint64_t time64 = be64toh(*(uint64_t *)(data + sizeof(KcpevKey)));
+            if(time64 != *(uint64_t *)&client->udp.heart)
+            {
+                log_err("recv client heart not match [%lu : %lu].", *(uint64_t *)(data + sizeof(KcpevKey)), time64);
+                break;
+            }
+            else
+            {
+                client->udp.heart = ev_now(client->loop);
+                debug("end heart beat");
+            }
+
             break;
 
         default:
@@ -792,8 +861,45 @@ void kcpev_on_timer(EV_P_ ev_timer *w, int revents)
     try_kcp_recv(w->data);
 }
 
+void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents)
+{
+    Kcpev *client = (Kcpev *)w->data;
+    
+    if(!is_kcp_valid(client))
+        return;
+
+    if(client->udp.heart - ev_now(EV_A) > KCPEV_HEARTBEAT_TIMEOUT)
+    {
+        set_kcp_invalid(client);
+        return;
+    }
+
+    // 由客户端发起心跳包
+    int ret = kcp_send_command(client, COMMAND_HEARTBEAT1, (char *)&client->key, sizeof(KcpevKey));
+    check(ret == 0, "");
+
+    debug("begin heart beat");
+error:
+    return;
+}
+
+void on_server_heartbeat_timer(EV_P_ ev_timer *w, int revents)
+{
+    Kcpev *client = (Kcpev *)w->data;
+    
+    if(!is_kcp_valid(client))
+        return;
+ 
+    if(client->udp.heart - ev_now(EV_A) > KCPEV_HEARTBEAT_TIMEOUT)
+    {
+        set_kcp_invalid(client);
+        kcp_send_command(client, COMMAND_UDP_INVALID, (char *)&client->key, sizeof(KcpevKey));
+        return;
+    }
+}
+
 // create kcp timer here
-int check_create_kcp_timer(Kcpev *kcpev)
+int check_create_kcp_timer(Kcpev *kcpev, timer_cb hcb)
 {
     if(kcpev->udp.evt)
         return -1;
@@ -806,9 +912,26 @@ int check_create_kcp_timer(Kcpev *kcpev)
     ev_timer_init(evt, kcpev_on_timer, 0.01, 0.01);
     ev_timer_start(kcpev->loop, evt);
 
+    ev_timer *evh = kcpev_malloc(sizeof(ev_timer));
+    check_mem(evh);
+
+    kcpev->udp.evh = evh;
+    evh->data = kcpev;
+    ev_timer_init(evh, hcb, 10, 10);
+    ev_timer_start(kcpev->loop, evh);
+
+    kcpev->udp.heart = ev_now(kcpev->loop);
+
     return 0;
 
 error:
+    if(evt)
+        kcpev_free(evt);
+    kcpev->udp.evt = NULL;
+
+    if(evh)
+        kcpev_free(evh);
+    kcpev->udp.evh = NULL;
     return -1;
 }
 
@@ -859,7 +982,7 @@ void server_tcp_recv(EV_P_ struct ev_io *w, int revents)
     int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     check(len > 0, "client tcp closed");
  
-    char uuids[UUID_PARSE_SIZE];
+    char uuids[KCPEV_UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
 
     socklen_t addr_size = sizeof(client_addr);
@@ -895,7 +1018,7 @@ void server_udp_recv(EV_P_ struct ev_io *w, int revents)
     int len = recv(KCPEV_FD_TO_HANDLE(w->fd), buf, sizeof(buf), 0);
     check(len > 0, "");
 
-    char uuids[UUID_PARSE_SIZE];
+    char uuids[KCPEV_UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
 
     //debug("udp recv from client[%s : %d]: [%d]", uuids, client->udp.kcp->conv, len);
@@ -934,7 +1057,7 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
     int client_sock = accept(KCPEV_FD_TO_HANDLE(w->fd), (struct sockaddr *)&client_addr, &addr_size);
     check(client_sock > 0, "accept");
 
-    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+    char hbuf[KCPEV_NI_MAXHOST], sbuf[KCPEV_NI_MAXSERV];
     int ret = getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
         sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
     check(ret == 0, "getnameinfo");
@@ -952,7 +1075,7 @@ void tcp_accept(EV_P_ struct ev_io *w, int revents)
     // create hashtable for client kcpev
     HASH_ADD(hh, server->hash, key, sizeof(KcpevKey), client);
 
-    char uuids[UUID_PARSE_SIZE];
+    char uuids[KCPEV_UUID_PARSE_SIZE];
     uuid_unparse(client->key.uuid, uuids);
     debug("accept client [%s : %s : %s]\n", hbuf, sbuf, uuids);
 
@@ -1050,7 +1173,7 @@ Kcpev *kcpev_create_client(struct ev_loop *loop, const char *port, int family)
     ret = kcpev_bind(kcpev, port, family, 0);
     check(ret >= 0, "kcpev_bind");
 
-    ret = kcpev_create_kcp(&kcpev->udp, kcpev->key.split_key.conv, KCP_MODE);
+    ret = kcpev_create_kcp(&kcpev->udp, kcpev->key.split_key.conv, KCPEV_KCP_MODE);
     check(ret >= 0, "create kcp");
 
     ret = kcpev_init_ev(kcpev, loop, kcpev, client_tcp_recv, client_udp_recv);
@@ -1100,6 +1223,14 @@ error:
     return NULL;
 }
 
+void set_kcp_invalid(Kcpev *kcpev)
+{
+    if(kcpev->udp.status == UDP_INVALID)
+        return;
+
+    kcpev->udp.status = UDP_INVALID;
+}
+
 int is_kcp_valid(Kcpev *kcpev)
 {
     if(!kcpev->udp.sock)
@@ -1108,7 +1239,7 @@ int is_kcp_valid(Kcpev *kcpev)
     if(!kcpev->udp.kcp)
         return 0;
 
-    if(kcpev->udp.status != UDP_READY)
+    if(kcpev->udp.status != UDP_READY && kcpev->udp.status != UDP_HEARTBEAT)
         return 0;
 
     if(!kcpev->udp.evt)
@@ -1153,6 +1284,22 @@ error:
     return -1;
 }
 
+int kcp_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t len)
+{
+    char buf[KCPEV_BUFFER_SIZE];
+    size_t real_size = pack_send_buf(buf, sizeof(buf), command, msg, len);
+    int ret = -1;
+    check(real_size > 0, "pack_send_buf");
+
+    if(is_kcp_valid(kcpev))
+    {
+        ret = ikcp_send(kcpev->udp.kcp, buf, real_size);
+    }
+
+error:
+    return ret;
+}
+
 int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t len)
 {
     char buf[KCPEV_BUFFER_SIZE];
@@ -1170,6 +1317,7 @@ int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t le
     {
         ret = send(kcpev->tcp.sock, buf, real_size, 0);
         check(ret == real_size, "");
+        return 0;
     }
 
 error:
@@ -1201,8 +1349,8 @@ int header_to_net(KcpevHeader *header, char *buf, size_t len)
     if(len < sizeof(KcpevHeader))
         return -1;
 
-    *(HEADER_SIZE_TYPE *)(buf) = htonl(header->size);
-    *(HEADER_COMMAND_TYPE *)(buf + sizeof(HEADER_SIZE_TYPE)) = header->command;
+    *(KCPEV_HEADER_SIZE_TYPE *)(buf) = htobe32(header->size);
+    *(KCPEV_HEADER_COMMAND_TYPE *)(buf + sizeof(KCPEV_HEADER_SIZE_TYPE)) = header->command;
     return 0;
 }
 
@@ -1211,8 +1359,8 @@ int header_from_net(KcpevHeader *header, const char *buf, size_t len)
     if(len < sizeof(KcpevHeader))
         return -1;
 
-    header->size = ntohl(*(const HEADER_SIZE_TYPE *)buf);
-    header->command = *(HEADER_COMMAND_TYPE *)(buf + sizeof(HEADER_SIZE_TYPE));
+    header->size = be32toh(*(const KCPEV_HEADER_SIZE_TYPE *)buf);
+    header->command = *(KCPEV_HEADER_COMMAND_TYPE *)(buf + sizeof(KCPEV_HEADER_SIZE_TYPE));
     return 0;
 }
 

@@ -12,6 +12,7 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 * tcp 和 udp 收发，默认使用 udp；udp 不可用时切换为 tcp，也可以强行使用 tcp
 * tcp 包使用 ringbuf 来重组，保证完整
 * udp 使用 kcp 来保证收发可靠
+* udp 心跳包
 * 收发正确性测试
 	- tests/kcpev_package_test
 	- tests/echo_server + tests/kcpev_remote_package_test
@@ -20,7 +21,7 @@ TCP 和 UDP 同时使用，结构参考[同现有 TCP 服务器整合](https://g
 
 ==========
 ###TODO:
-* udp 心跳包
+* 心跳包测试 
 * 断线重连
 
 ==========

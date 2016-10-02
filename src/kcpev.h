@@ -8,19 +8,20 @@
 #include "ikcp.h"
 #include "utils.h"
 
-#define INPORT_ANY          "0"
-#define KCPEV_BUFFER_SIZE   65536
-#define NI_MAXHOST          1025
-#define NI_MAXSERV          32
-#define UUID_PARSE_SIZE     37
+#define KCPEV_INPORT_ANY        "0"
+#define KCPEV_BUFFER_SIZE       65536
+#define KCPEV_NI_MAXHOST        1025
+#define KCPEV_NI_MAXSERV        32
+#define KCPEV_UUID_PARSE_SIZE   37
 
-#define HEADER_SIZE_TYPE    uint32_t
-#define HEADER_COMMAND_TYPE uint8_t
+#define KCPEV_HEADER_SIZE_TYPE      uint32_t
+#define KCPEV_HEADER_COMMAND_TYPE   uint8_t
 
-#define KCP_MODE            2
+#define KCPEV_KCP_MODE              2
+#define KCPEV_HEARTBEAT_TIMEOUT     30
 
 #ifdef _WIN32
-#define KCPEV_HANDLE_TO_FD(handle)    (_open_osfhandle (handle, 0))
+#define KCPEV_HANDLE_TO_FD(handle)  (_open_osfhandle (handle, 0))
 #define KCPEV_FD_TO_HANDLE(fd)      (_get_osfhandle(fd))
 #else
 #define KCPEV_HANDLE_TO_FD(handle)  handle
@@ -31,12 +32,16 @@
 extern "C" {
 #endif
 
+typedef double KcpevTimestamp;
+
 enum Command
 {
     COMMAND_DATA = 1,           // 普通数据
     COMMAND_SHAKE_HAND1,        // 握手第一次
     COMMAND_SHAKE_HAND2,        // 握手第二次
-    COMMAND_HEARTBEAT,          // 心跳
+    COMMAND_HEARTBEAT1,         // 心跳
+    COMMAND_HEARTBEAT2,         // 心跳
+    COMMAND_UDP_INVALID,        // 设置udp无效
 };
 
 enum UdpStatus
@@ -44,6 +49,7 @@ enum UdpStatus
     UDP_INVALID = 0,            // udp不可用
     UDP_SHAKING_HAND,           // udp握手中
     UDP_READY,                  // udp可用
+    UDP_HEARTBEAT,              // 心跳包
 };
 
 typedef struct
@@ -81,9 +87,11 @@ typedef struct
 typedef struct
 {
     KCPEV_SOCK;
-    ev_timer *evt;
+    ev_timer *evt;      // kcp timer
+    ev_timer *evh;      // heartbeat timer
     ikcpcb *kcp;
-    uint8_t status;     // 0: invalid, 1: shaking hand, 2: ready
+    uint8_t status;     // UdpStatus
+    KcpevTimestamp heart;
 } KcpevUdp;
 
 struct _Kcpev;
@@ -94,6 +102,8 @@ typedef void (*kcpev_server_recv_cb)(struct _KcpevServer *kcpev_server, struct _
 
 typedef void (*kcpev_disconnect_cb)(struct _Kcpev *kcpev);
 typedef void (*kcpev_server_disconnect_cb)(struct _KcpevServer *server, struct _Kcpev *kcpev);
+
+typedef void (*timer_cb)(EV_P_ ev_timer *w, int revents);
 
 #define KCPEV_BASE  \
     KcpevTcp tcp;              \
@@ -121,8 +131,8 @@ typedef struct _KcpevServer
 
 typedef struct
 {
-    HEADER_SIZE_TYPE size;
-    HEADER_COMMAND_TYPE command;
+    KCPEV_HEADER_SIZE_TYPE size;
+    KCPEV_HEADER_COMMAND_TYPE command;
 } KcpevHeader;
 
 typedef void (*ev_io_callback)(EV_P_ ev_io *w, int revents);

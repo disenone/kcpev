@@ -36,20 +36,20 @@ typedef double KcpevTimestamp;
 
 enum Command
 {
-    COMMAND_DATA = 1,           // ÆÕÍ¨Êý¾Ý
-    COMMAND_SHAKE_HAND1,        // ÎÕÊÖµÚÒ»´Î
-    COMMAND_SHAKE_HAND2,        // ÎÕÊÖµÚ¶þ´Î
-    COMMAND_HEARTBEAT1,         // ÐÄÌø
-    COMMAND_HEARTBEAT2,         // ÐÄÌø
-    COMMAND_UDP_INVALID,        // ÉèÖÃudpÎÞÐ§
+    COMMAND_DATA = 1,           // æ™®é€šæ•°æ®
+    COMMAND_SHAKE_HAND1,        // æ¡æ‰‹ç¬¬ä¸€æ¬¡
+    COMMAND_SHAKE_HAND2,        // æ¡æ‰‹ç¬¬äºŒæ¬¡
+    COMMAND_HEARTBEAT1,         // å¿ƒè·³
+    COMMAND_HEARTBEAT2,         // å¿ƒè·³
+    COMMAND_UDP_INVALID,        // è®¾ç½®udpæ— æ•ˆ
 };
 
 enum UdpStatus
 {
-    UDP_INVALID = 0,            // udp²»¿ÉÓÃ
-    UDP_SHAKING_HAND,           // udpÎÕÊÖÖÐ
-    UDP_READY,                  // udp¿ÉÓÃ
-    UDP_HEARTBEAT,              // ÐÄÌø°ü
+    UDP_INVALID = 0,            // udpä¸å¯ç”¨
+    UDP_SHAKING_HAND,           // udpæ¡æ‰‹ä¸­
+    UDP_READY,                  // udpå¯ç”¨
+    UDP_HEARTBEAT,              // å¿ƒè·³åŒ…
 };
 
 typedef struct
@@ -68,7 +68,7 @@ typedef union
     myuuid_t uuid;
 } KcpevKey;
 
-// ´æev_io½Ó¿ÚºÍsocket
+// å­˜ev_ioæŽ¥å£å’Œsocket
 #define KCPEV_SOCK  \
     int sock;       \
     ev_io *evio

@@ -223,7 +223,7 @@ int kcpev_bind(Kcpev *kcpev, const char *port, int family, int reuse)
 {
     int ret = 0;
 
-    // tcpÁ¬½ÓÊÇ±ØÐëµÄ
+    // tcpè¿žæŽ¥æ˜¯å¿…é¡»çš„
     ret = kcpev_bind_tcp(&kcpev->tcp, port, family, reuse);
     check(ret >= 0, "kcpev_bind_tcp");
 
@@ -237,7 +237,7 @@ int kcpev_bind(Kcpev *kcpev, const char *port, int family, int reuse)
     check(ret >= 0, "getnameinfo");
     debug("local tcp port[%s : %s]", hbuf, sbuf);
 
-    // Èç¹ûudp´´½¨Ê§°Ü£¬»áÍË»¯µ½ÓÃtcpÀ´Í¨ÐÅ
+    // å¦‚æžœudpåˆ›å»ºå¤±è´¥ï¼Œä¼šé€€åŒ–åˆ°ç”¨tcpæ¥é€šä¿¡
     ret = kcpev_bind_udp(&kcpev->udp, port, family, reuse);
     getsockname(kcpev->udp.sock, (struct sockaddr*)&client_addr, &addr_size);
     getnameinfo((struct sockaddr *)&client_addr, addr_size, hbuf, sizeof(hbuf), \
@@ -303,11 +303,11 @@ int kcpev_connect(Kcpev *kcpev, const char *address, const char *port)
 {
     int ret = 0;
 
-    // tcpÁ¬½ÓÊÇ±ØÐëµÄ
+    // tcpè¿žæŽ¥æ˜¯å¿…é¡»çš„
     ret = kcpev_connect_tcp(&kcpev->tcp, address, port);
     check(ret >= 0, "kcpev_connect_tcp");
 
-    // Èç¹ûudpÁ¬½ÓÊ§°Ü£¬»áÍË»¯µ½ÓÃtcpÀ´Í¨ÐÅ
+    // å¦‚æžœudpè¿žæŽ¥å¤±è´¥ï¼Œä¼šé€€åŒ–åˆ°ç”¨tcpæ¥é€šä¿¡
     ret = kcpev_connect_udp(&kcpev->udp, address, port);
     if(ret < 0)
     {
@@ -399,9 +399,9 @@ error:
     return 0;
 }
 
-// ´´½¨kcp, »áÊ¹ÓÃkcpevÀïÃæµÄconvÊôÐÔºÍudpÌ×½Ó¿Ú£¬
-// Èç¹ûÊÇ¿ÕµÄ£¬ºóÃæ´´½¨socket»òÕß¿Í»§¶ËÁ¬½Ó·þÎñ¶ËÊ±»áÖØÐÂÌîÐ´ÕâÁ½¸öÊôÐÔ
-// kcp_mode: 0 Ä¬ÈÏÄ£Ê½, 1 ÆÕÍ¨Ä£Ê½, 2 ¼«ËÙÄ£Ê½
+// åˆ›å»ºkcp, ä¼šä½¿ç”¨kcpevé‡Œé¢çš„convå±žæ€§å’Œudpå¥—æŽ¥å£ï¼Œ
+// å¦‚æžœæ˜¯ç©ºçš„ï¼ŒåŽé¢åˆ›å»ºsocketæˆ–è€…å®¢æˆ·ç«¯è¿žæŽ¥æœåŠ¡ç«¯æ—¶ä¼šé‡æ–°å¡«å†™è¿™ä¸¤ä¸ªå±žæ€§
+// kcp_mode: 0 é»˜è®¤æ¨¡å¼, 1 æ™®é€šæ¨¡å¼, 2 æžé€Ÿæ¨¡å¼
 int kcpev_create_kcp(KcpevUdp *udp, int conv, int kcp_mode)
 {
     ikcpcb *kcp = ikcp_create(conv, udp);
@@ -519,6 +519,19 @@ int on_client_recv(Kcpev *client, const char *buf, size_t len)
             client->udp.heart = ev_now(client->loop);
             debug("end heart beat");
             break;
+
+		case COMMAND_UDP_INVALID:
+            if(!is_kcp_valid(client))
+                break;
+
+            check(data_len == sizeof(KcpevKey), "set key data len error");
+
+            check(memcmp(data, &client->key, sizeof(KcpevKey)) == 0,
+                "recv server shake hand2 key not match hand1 key");
+        
+			set_kcp_invalid(client);
+
+			break;
 
         default:
             sentinel("unrecognized command from server");
@@ -863,18 +876,19 @@ void kcpev_on_timer(EV_P_ ev_timer *w, int revents)
 
 void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents)
 {
+	debug("client heart beat timer");
     Kcpev *client = (Kcpev *)w->data;
     
     if(!is_kcp_valid(client))
         return;
 
-    if(client->udp.heart - ev_now(EV_A) > KCPEV_HEARTBEAT_TIMEOUT)
+    if(ev_now(EV_A) - client->udp.heart > KCPEV_HEARTBEAT_TIMEOUT)
     {
         set_kcp_invalid(client);
         return;
     }
 
-    // ÓÉ¿Í»§¶Ë·¢ÆðÐÄÌø°ü
+    // ç”±å®¢æˆ·ç«¯å‘èµ·å¿ƒè·³åŒ…
     int ret = kcp_send_command(client, COMMAND_HEARTBEAT1, (char *)&client->key, sizeof(KcpevKey));
     check(ret == 0, "");
 
@@ -885,15 +899,19 @@ error:
 
 void on_server_heartbeat_timer(EV_P_ ev_timer *w, int revents)
 {
+	debug("server heart beat timer");
+
     Kcpev *client = (Kcpev *)w->data;
     
     if(!is_kcp_valid(client))
         return;
  
-    if(client->udp.heart - ev_now(EV_A) > KCPEV_HEARTBEAT_TIMEOUT)
+    if(ev_now(EV_A) - client->udp.heart > KCPEV_HEARTBEAT_TIMEOUT)
     {
+		debug("server heart beat set invalid");
+
         set_kcp_invalid(client);
-        kcp_send_command(client, COMMAND_UDP_INVALID, (char *)&client->key, sizeof(KcpevKey));
+        sock_send_command(client->tcp.sock, COMMAND_UDP_INVALID, (char *)&client->key, sizeof(KcpevKey));
         return;
     }
 }
@@ -935,8 +953,8 @@ error:
     return -1;
 }
 
-// Èç¹û kcpev.conv Ã»ÓÐÉèÖÃ£¬ËµÃ÷»¹Ã»ÓÐÎÕÊÖ³É¹¦£¬À´µ½ÕâÀïÊÕµ½·þÎñ¶ËµÄudp°ü£¬Ö±½ÓÉèÖÃkcp.conv
-// ·ñÔòËµÃ÷ÎÕÊÖ³É¹¦£¬ÓÃ kcp ½ÓÊÕÊý¾Ý
+// å¦‚æžœ kcpev.conv æ²¡æœ‰è®¾ç½®ï¼Œè¯´æ˜Žè¿˜æ²¡æœ‰æ¡æ‰‹æˆåŠŸï¼Œæ¥åˆ°è¿™é‡Œæ”¶åˆ°æœåŠ¡ç«¯çš„udpåŒ…ï¼Œç›´æŽ¥è®¾ç½®kcp.conv
+// å¦åˆ™è¯´æ˜Žæ¡æ‰‹æˆåŠŸï¼Œç”¨ kcp æŽ¥æ”¶æ•°æ®
 void client_udp_recv(EV_P_ struct ev_io *w, int revents)
 {
     char buf[KCPEV_BUFFER_SIZE];
@@ -1047,7 +1065,7 @@ error:
     return;
 }
 
-// ½ÓÊÜÐÂµÄ¿Í»§¶Ë£¬²¢·¢ËÍkey
+// æŽ¥å—æ–°çš„å®¢æˆ·ç«¯ï¼Œå¹¶å‘é€key
 void tcp_accept(EV_P_ struct ev_io *w, int revents)
 {
     Kcpev *client = NULL;
@@ -1097,7 +1115,7 @@ error:
     return;
 }
 
-// ½ÓÊÕ¿Í»§¶ËµÄudpÐÅÏ¢
+// æŽ¥æ”¶å®¢æˆ·ç«¯çš„udpä¿¡æ¯
 void server_udp_recv_all(EV_P_ struct ev_io *w, int revents)
 {
     struct sockaddr_storage client_addr;
@@ -1307,7 +1325,7 @@ int kcpev_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t le
     check(real_size > 0, "pack_send_buf");
 
     int ret = -1;
-    // Èç¹ûkcpÄÜÓÃ£¬¾ÍÓÃkcpÀ´·¢ÏûÏ¢£¬·ñÔòÓÃtcp
+    // å¦‚æžœkcpèƒ½ç”¨ï¼Œå°±ç”¨kcpæ¥å‘æ¶ˆæ¯ï¼Œå¦åˆ™ç”¨tcp
     if(is_kcp_valid(kcpev))
     {
         ret = ikcp_send(kcpev->udp.kcp, buf, real_size);

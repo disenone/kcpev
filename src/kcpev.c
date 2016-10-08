@@ -179,11 +179,13 @@ int kcpev_bind_socket(KcpevSock *sock, int sock_type, const char *port, int fami
         if(reuse)
         {
             int opt = 1;
-#ifdef _WIN32		// windows has only SO_REUSEADDR
-            ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+#ifdef SO_REUSEPORT
+            int optname = SO_REUSEPORT;
 #else
-            ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+            int optname = SO_REUSEADDR;
 #endif
+            ret = setsockopt(s, SOL_SOCKET, optname, &opt, sizeof(opt));
             check(ret >= 0, "set reuse addr");
         }
 
@@ -642,10 +644,6 @@ int on_server_recv(KcpevServer *server, Kcpev *client, const char *buf, size_t l
             check(ret == 0, "");
 
             debug("begin heart beat [%lu : %lu]", *(uint64_t *)&client->udp.heart, *(uint64_t *)(send_buf + sizeof(KcpevKey)));
-            for(int i=0; i<sizeof(send_buf); ++i)
-            {
-
-            }
             break;
 
         case COMMAND_HEARTBEAT2:

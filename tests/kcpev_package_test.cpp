@@ -84,7 +84,7 @@ Kcpev* create_client()
 
     evt = new ev_timer;
     evt->data = kcpev;
-    ev_timer_init(evt, on_timer, 0.01, 0.01);
+    ev_timer_init(evt, on_timer, 1, 0.01);
     ev_timer_start(loop, evt);
 
     return kcpev;
@@ -145,6 +145,9 @@ TEST(KcpevTest, PackageTest)
     ev_timer_start(kcpev1->loop, &evs);
    
     ev_run(kcpev1->loop, 0);
+
+	EXPECT_TRUE(is_kcp_valid(kcpev1));
+	EXPECT_TRUE(is_kcp_valid(kcpev2));
 
     for(const auto &pair: *static_cast<unordered_map<int, vector<char>> *>(kcpev1->data))
     {

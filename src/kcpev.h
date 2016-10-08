@@ -155,6 +155,7 @@ void kcpev_server_set_cb(KcpevServer *kcpev, kcpev_server_recv_cb recv_cb, kcpev
 
 int header_to_net(KcpevHeader *header, char *buf, size_t len);
 int header_from_net(KcpevHeader *header, const char *buf, size_t len);
+int is_kcp_valid(Kcpev *kcpev);
 
 #ifdef __cplusplus
 }

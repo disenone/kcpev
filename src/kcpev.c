@@ -20,7 +20,6 @@ int kcp_send_command(Kcpev *kcpev, uint8_t command, const char *msg, size_t len)
 int check_create_kcp_timer(Kcpev *kcpev, timer_cb hcb);
 int kcpev_set_ev(struct ev_loop *loop, void *data, KcpevSock *evs, ev_io_callback cb);
 int kcpev_create_kcp(KcpevUdp *udp, int conv, int kcp_mode);
-int is_kcp_valid(Kcpev *kcpev);
 void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents);
 void set_kcp_invalid(Kcpev *kcpev);
 void on_client_heartbeat_timer(EV_P_ ev_timer *w, int revents);
@@ -180,7 +179,11 @@ int kcpev_bind_socket(KcpevSock *sock, int sock_type, const char *port, int fami
         if(reuse)
         {
             int opt = 1;
+#ifdef _WIN32		// windows has only SO_REUSEADDR
             ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#else
+            ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+#endif
             check(ret >= 0, "set reuse addr");
         }
 

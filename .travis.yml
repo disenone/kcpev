@@ -6,6 +6,7 @@
 before_install:
   - brew update || true
   - brew install libev || true
+  - brew install ossp-uuid || true
 
 install:
 # /usr/bin/gcc is 4.6 always, but gcc-X.Y is available.
